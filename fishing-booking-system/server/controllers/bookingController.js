@@ -9,7 +9,7 @@ exports.getAllBookings = async (req, res) => {
 
 exports.createBooking = async (req, res) => {
     try {
-        const { placeId, startTime, endTime } = req.body;
+        const { placeId, startTime, duration } = req.body;
         const userId = req.user.id;
         const db = req.app.locals.readDB();
 
@@ -19,12 +19,17 @@ exports.createBooking = async (req, res) => {
             return res.status(404).json({ message: 'Place not found' });
         }
 
+        // Вычисляем время окончания на основе длительности
+        const start = new Date(startTime);
+        const end = new Date(start.getTime() + duration * 3600000); // duration в часах
+
         // Проверка на пересечение бронирований
         const conflictingBooking = db.bookings.find(b => 
             b.placeId === placeId && 
-            b.status !== 'cancelled' &&
-            ((new Date(startTime) >= new Date(b.startTime) && new Date(startTime) < new Date(b.endTime)) ||
-             (new Date(endTime) > new Date(b.startTime) && new Date(endTime) <= new Date(b.endTime)))
+            b.status === 'approved' &&
+            ((start >= new Date(b.startTime) && start < new Date(b.endTime)) ||
+             (end > new Date(b.startTime) && end <= new Date(b.endTime)) ||
+             (start <= new Date(b.startTime) && end >= new Date(b.endTime)))
         );
 
         if (conflictingBooking) {
@@ -35,8 +40,8 @@ exports.createBooking = async (req, res) => {
             id: Date.now().toString(),
             userId,
             placeId,
-            startTime,
-            endTime,
+            startTime: start.toISOString(),
+            endTime: end.toISOString(),
             status: 'pending',
             createdAt: new Date().toISOString(),
             extendedCount: 0,
@@ -50,7 +55,7 @@ exports.createBooking = async (req, res) => {
         }
 
         // Обновляем время посещения
-        const visitDuration = (new Date(endTime) - new Date(startTime)) / (1000 * 60 * 60);
+        const visitDuration = duration;
         const existingVisit = db.stats.visits.find(v => v.userId === userId);
         
         if (existingVisit) {
@@ -176,6 +181,34 @@ exports.getMyBookings = async (req, res) => {
         
         const myBookings = db.bookings.filter(b => b.userId === userId);
         res.json(myBookings);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+exports.requestCancel = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const db = req.app.locals.readDB();
+        
+        const booking = db.bookings.find(b => b.id === id);
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+        }
+
+        // Проверка прав
+        if (booking.userId !== req.user.id) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        booking.cancelRequested = true;
+        booking.cancelRequestedAt = new Date().toISOString();
+        
+        if (!req.app.locals.writeDB(db)) {
+            return res.status(500).json({ message: 'Error requesting cancel' });
+        }
+
+        res.json({ message: 'Cancel request sent successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }

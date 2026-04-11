@@ -50,6 +50,14 @@ export const apiService = {
     api.post(`/bookings/${id}/extend`, { additionalHours }).then(res => res.data),
   getMyBookings: () => api.get('/bookings/my-bookings').then(res => res.data),
   
+  // Заявки на отмену
+  requestCancelBooking: (id) => 
+    api.post(`/bookings/${id}/request-cancel`).then(res => res.data),
+  approveCancelRequest: (id) => 
+    api.put(`/manager/bookings/${id}/approve-cancel`).then(res => res.data),
+  rejectCancelRequest: (id) => 
+    api.put(`/manager/bookings/${id}/reject-cancel`).then(res => res.data),
+  
   // Чаты
   getChats: () => api.get('/chats').then(res => res.data),
   createChat: () => api.post('/chats').then(res => res.data),
@@ -74,6 +82,7 @@ export const apiService = {
   addCatch: (data) => api.post('/manager/catches', data).then(res => res.data),
   clearFishingStats: () => api.delete('/manager/stats/fishing').then(res => res.data),
   clearVisitsStats: () => api.delete('/manager/stats/visits').then(res => res.data),
+  getActiveUsers: () => api.get('/manager/active-users').then(res => res.data),
   
   // Пользователь
   getProfile: () => api.get('/user/profile').then(res => res.data),

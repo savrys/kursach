@@ -8,8 +8,11 @@ router.use(authMiddleware);
 router.use(roleCheck(['manager', 'admin']));
 
 router.get('/pending-bookings', managerController.getPendingBookings);
+router.get('/active-users', managerController.getActiveUsers); // НОВЫЙ МАРШРУТ
 router.put('/bookings/:id/approve', managerController.approveBooking);
 router.put('/bookings/:id/reject', managerController.rejectBooking);
+router.put('/bookings/:id/approve-cancel', managerController.approveCancelRequest);
+router.put('/bookings/:id/reject-cancel', managerController.rejectCancelRequest);
 router.post('/places', managerController.createPlace);
 router.put('/places/:id', managerController.updatePlace);
 router.delete('/places/:id', managerController.deletePlace);

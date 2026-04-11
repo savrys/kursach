@@ -20,6 +20,37 @@ exports.getPendingBookings = async (req, res) => {
     }
 };
 
+// НОВАЯ ФУНКЦИЯ - получить активных пользователей
+exports.getActiveUsers = async (req, res) => {
+    try {
+        const db = req.app.locals.readDB();
+        const now = new Date();
+        
+        // Находим активные бронирования
+        const activeBookings = db.bookings.filter(b => 
+            b.status === 'approved' &&
+            new Date(b.startTime) <= now &&
+            new Date(b.endTime) >= now
+        );
+        
+        // Получаем уникальных пользователей из активных бронирований
+        const activeUserIds = [...new Set(activeBookings.map(b => b.userId))];
+        const activeUsers = db.users.filter(u => activeUserIds.includes(u.id));
+        
+        // Возвращаем только нужные поля
+        const usersData = activeUsers.map(u => ({
+            id: u.id,
+            username: u.username,
+            email: u.email,
+            role: u.role
+        }));
+        
+        res.json(usersData);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 exports.approveBooking = async (req, res) => {
     try {
         const { id } = req.params;
@@ -30,6 +61,22 @@ exports.approveBooking = async (req, res) => {
             return res.status(404).json({ message: 'Booking not found' });
         }
 
+        // Проверяем, нет ли активных бронирований на этом месте
+        const conflictingBooking = db.bookings.find(b => 
+            b.placeId === booking.placeId && 
+            b.status === 'approved' &&
+            b.id !== id &&
+            ((new Date(booking.startTime) >= new Date(b.startTime) && new Date(booking.startTime) < new Date(b.endTime)) ||
+             (new Date(booking.endTime) > new Date(b.startTime) && new Date(booking.endTime) <= new Date(b.endTime)) ||
+             (new Date(booking.startTime) <= new Date(b.startTime) && new Date(booking.endTime) >= new Date(b.endTime)))
+        );
+
+        if (conflictingBooking) {
+            return res.status(400).json({ 
+                message: 'Место уже забронировано на это время' 
+            });
+        }
+
         booking.status = 'approved';
         booking.approvedAt = new Date().toISOString();
         booking.approvedBy = req.user.id;
@@ -38,8 +85,12 @@ exports.approveBooking = async (req, res) => {
             return res.status(500).json({ message: 'Error approving booking' });
         }
 
-        res.json({ message: 'Booking approved successfully' });
+        res.json({ 
+            message: 'Booking approved successfully',
+            booking: booking
+        });
     } catch (error) {
+        console.error('Approve booking error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -63,6 +114,55 @@ exports.rejectBooking = async (req, res) => {
         }
 
         res.json({ message: 'Booking rejected successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Одобрить запрос на отмену
+exports.approveCancelRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const db = req.app.locals.readDB();
+        
+        const booking = db.bookings.find(b => b.id === id);
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+        }
+
+        booking.status = 'cancelled';
+        booking.cancelledAt = new Date().toISOString();
+        booking.cancelledBy = req.user.id;
+        booking.cancelRequested = false;
+        
+        if (!req.app.locals.writeDB(db)) {
+            return res.status(500).json({ message: 'Error cancelling booking' });
+        }
+
+        res.json({ message: 'Booking cancelled successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Отклонить запрос на отмену
+exports.rejectCancelRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const db = req.app.locals.readDB();
+        
+        const booking = db.bookings.find(b => b.id === id);
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+        }
+
+        booking.cancelRequested = false;
+        
+        if (!req.app.locals.writeDB(db)) {
+            return res.status(500).json({ message: 'Error rejecting cancel request' });
+        }
+
+        res.json({ message: 'Cancel request rejected' });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }

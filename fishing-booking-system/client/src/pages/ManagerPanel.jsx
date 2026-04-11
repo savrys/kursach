@@ -3,7 +3,9 @@ import { apiService } from '../services/api';
 
 const ManagerPanel = () => {
   const [pendingBookings, setPendingBookings] = useState([]);
+  const [activeBookings, setActiveBookings] = useState([]);
   const [places, setPlaces] = useState([]);
+  const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('bookings');
   const [showAddPlaceForm, setShowAddPlaceForm] = useState(false);
   const [newPlace, setNewPlace] = useState({
@@ -18,25 +20,44 @@ const ManagerPanel = () => {
     amount: 0
   });
   const [loading, setLoading] = useState(true);
+  const [cancelRequests, setCancelRequests] = useState([]);
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    try {
-      const [bookings, placesData] = await Promise.all([
-        apiService.getPendingBookings(),
-        apiService.getPlaces()
-      ]);
-      setPendingBookings(bookings);
-      setPlaces(placesData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const [bookings, placesData, activeUsers, allBookings] = await Promise.all([
+      apiService.getPendingBookings(),
+      apiService.getPlaces(),
+      apiService.getActiveUsers(), // Используем новый эндпоинт вместо getAllUsers
+      apiService.getAllBookings()
+    ]);
+    
+    setPendingBookings(bookings);
+    setPlaces(placesData);
+    setUsers(activeUsers); // Теперь это только активные пользователи
+    
+    // Фильтруем активные бронирования
+    const now = new Date();
+    const active = allBookings.filter(b => 
+      b.status === 'approved' && 
+      new Date(b.startTime) <= now && 
+      new Date(b.endTime) >= now
+    );
+    setActiveBookings(active);
+    
+    // Заявки на отмену
+    const cancelReqs = allBookings.filter(b => b.cancelRequested === true);
+    setCancelRequests(cancelReqs);
+    
+  } catch (error) {
+    console.error('Error loading data:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleApproveBooking = async (bookingId) => {
     try {
@@ -55,6 +76,43 @@ const ManagerPanel = () => {
     } catch (error) {
       alert('Ошибка при отклонении бронирования');
       console.error('Error rejecting booking:', error);
+    }
+  };
+
+  const handleCancelBooking = async (bookingId) => {
+    if (!window.confirm('Вы уверены, что хотите отменить это бронирование?')) {
+      return;
+    }
+    
+    try {
+      await apiService.cancelBooking(bookingId);
+      loadData();
+      alert('Бронирование отменено');
+    } catch (error) {
+      alert('Ошибка при отмене бронирования');
+      console.error('Error cancelling booking:', error);
+    }
+  };
+
+  const handleApproveCancelRequest = async (bookingId) => {
+    try {
+      await apiService.approveCancelRequest(bookingId);
+      loadData();
+      alert('Заявка на отмену одобрена');
+    } catch (error) {
+      alert('Ошибка при одобрении отмены');
+      console.error('Error approving cancel:', error);
+    }
+  };
+
+  const handleRejectCancelRequest = async (bookingId) => {
+    try {
+      await apiService.rejectCancelRequest(bookingId);
+      loadData();
+      alert('Заявка на отмену отклонена');
+    } catch (error) {
+      alert('Ошибка при отклонении отмены');
+      console.error('Error rejecting cancel:', error);
     }
   };
 
@@ -92,31 +150,68 @@ const ManagerPanel = () => {
 
   const handleAddCatch = async (e) => {
     e.preventDefault();
+    
+    if (!catchData.userId || !catchData.bookingId || !catchData.amount) {
+      alert('Заполните все поля');
+      return;
+    }
+    
     try {
       await apiService.addCatch(catchData);
+      
+      // Находим пользователя и бронь для отображения
+      const user = users.find(u => u.id === catchData.userId);
+      const booking = activeBookings.find(b => b.id === catchData.bookingId);
+      
+      alert(`Улов добавлен!\nПользователь: ${user?.username || 'Неизвестно'}\nМесто: ${booking?.placeId || 'Неизвестно'}\nКоличество: ${catchData.amount} кг`);
+      
       setCatchData({ userId: '', bookingId: '', amount: 0 });
       loadData();
-      alert('Улов добавлен успешно!');
     } catch (error) {
       alert('Ошибка при добавлении улова');
       console.error('Error adding catch:', error);
     }
   };
 
+  // Получаем активных пользователей (тех, у кого есть активные брони)
+  const getActiveUsers = () => {
+    const activeUserIds = activeBookings.map(b => b.userId);
+    return users.filter(u => activeUserIds.includes(u.id));
+  };
+
+  // Получаем бронирования для выбранного пользователя
+  const getBookingsForUser = (userId) => {
+    return activeBookings.filter(b => b.userId === userId);
+  };
+
   if (loading) {
     return <div className="loading">Загрузка...</div>;
   }
+
+  const activeUsers = getActiveUsers();
 
   return (
     <div className="card">
       <h2>📋 Панель управления</h2>
       
-      <div style={{ marginBottom: '20px', marginTop: '20px', display: 'flex', gap: '10px' }}>
+      <div style={{ marginBottom: '20px', marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button 
           className={`btn ${activeTab === 'bookings' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('bookings')}
         >
-          Заявки на бронирование
+          Заявки на бронирование ({pendingBookings.length})
+        </button>
+        <button 
+          className={`btn ${activeTab === 'active' ? 'btn-primary' : ''}`}
+          onClick={() => setActiveTab('active')}
+        >
+          Активные брони ({activeBookings.length})
+        </button>
+        <button 
+          className={`btn ${activeTab === 'cancelRequests' ? 'btn-primary' : ''}`}
+          onClick={() => setActiveTab('cancelRequests')}
+        >
+          Заявки на отмену ({cancelRequests.length})
         </button>
         <button 
           className={`btn ${activeTab === 'places' ? 'btn-primary' : ''}`}
@@ -173,6 +268,101 @@ const ManagerPanel = () => {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'active' && (
+        <div>
+          <h3>Активные бронирования</h3>
+          {activeBookings.length === 0 ? (
+            <p>Нет активных бронирований</p>
+          ) : (
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>Место</th>
+                  <th>Начало</th>
+                  <th>Окончание</th>
+                  <th>Улов</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeBookings.map(booking => {
+                  const user = users.find(u => u.id === booking.userId);
+                  const place = places.find(p => p.id === booking.placeId);
+                  return (
+                    <tr key={booking.id}>
+                      <td>{user?.username || 'Неизвестно'}</td>
+                      <td>{place?.name || booking.placeId}</td>
+                      <td>{new Date(booking.startTime).toLocaleString()}</td>
+                      <td>{new Date(booking.endTime).toLocaleString()}</td>
+                      <td>{booking.catchAmount || 0} кг</td>
+                      <td>
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px' }}
+                          onClick={() => handleCancelBooking(booking.id)}
+                        >
+                          Отменить бронь
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'cancelRequests' && (
+        <div>
+          <h3>Заявки на отмену бронирования</h3>
+          {cancelRequests.length === 0 ? (
+            <p>Нет заявок на отмену</p>
+          ) : (
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>Место</th>
+                  <th>Дата брони</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cancelRequests.map(booking => {
+                  const user = users.find(u => u.id === booking.userId);
+                  const place = places.find(p => p.id === booking.placeId);
+                  return (
+                    <tr key={booking.id}>
+                      <td>{user?.username || 'Неизвестно'}</td>
+                      <td>{place?.name || booking.placeId}</td>
+                      <td>{new Date(booking.startTime).toLocaleDateString()}</td>
+                      <td>
+                        <button
+                          className="btn btn-primary"
+                          style={{ marginRight: '10px', padding: '4px 8px' }}
+                          onClick={() => handleApproveCancelRequest(booking.id)}
+                        >
+                          ✓ Одобрить отмену
+                        </button>
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px' }}
+                          onClick={() => handleRejectCancelRequest(booking.id)}
+                        >
+                          ✕ Отклонить
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -302,38 +492,74 @@ const ManagerPanel = () => {
       {activeTab === 'catch' && (
         <div>
           <h3>Добавить улов</h3>
-          <form onSubmit={handleAddCatch} style={{ maxWidth: '400px' }}>
-            <div className="form-group">
-              <label>ID пользователя:</label>
-              <input
-                type="text"
-                value={catchData.userId}
-                onChange={(e) => setCatchData({...catchData, userId: e.target.value})}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>ID бронирования:</label>
-              <input
-                type="text"
-                value={catchData.bookingId}
-                onChange={(e) => setCatchData({...catchData, bookingId: e.target.value})}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Количество (кг):</label>
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={catchData.amount}
-                onChange={(e) => setCatchData({...catchData, amount: parseFloat(e.target.value)})}
-                required
-              />
-            </div>
-            <button type="submit" className="btn btn-primary">Добавить улов</button>
-          </form>
+          
+          {activeUsers.length === 0 ? (
+            <p>Нет активных пользователей на рыбалке</p>
+          ) : (
+            <form onSubmit={handleAddCatch} style={{ maxWidth: '500px' }}>
+              <div className="form-group">
+                <label>Выберите пользователя:</label>
+                <select
+                  value={catchData.userId}
+                  onChange={(e) => {
+                    setCatchData({
+                      ...catchData,
+                      userId: e.target.value,
+                      bookingId: '' // Сбрасываем выбор брони
+                    });
+                  }}
+                  required
+                  style={{ width: '100%', padding: '10px' }}
+                >
+                  <option value="">-- Выберите пользователя --</option>
+                  {activeUsers.map(user => (
+                    <option key={user.id} value={user.id}>
+                      {user.username} ({user.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {catchData.userId && (
+                <div className="form-group">
+                  <label>Выберите бронирование (место):</label>
+                  <select
+                    value={catchData.bookingId}
+                    onChange={(e) => setCatchData({...catchData, bookingId: e.target.value})}
+                    required
+                    style={{ width: '100%', padding: '10px' }}
+                  >
+                    <option value="">-- Выберите бронирование --</option>
+                    {getBookingsForUser(catchData.userId).map(booking => {
+                      const place = places.find(p => p.id === booking.placeId);
+                      return (
+                        <option key={booking.id} value={booking.id}>
+                          {place?.name || booking.placeId} - до {new Date(booking.endTime).toLocaleTimeString()}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+              
+              <div className="form-group">
+                <label>Количество улова (кг):</label>
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={catchData.amount}
+                  onChange={(e) => setCatchData({...catchData, amount: parseFloat(e.target.value)})}
+                  required
+                  style={{ width: '100%', padding: '10px' }}
+                />
+              </div>
+              
+              <button type="submit" className="btn btn-primary">
+                Добавить улов
+              </button>
+            </form>
+          )}
         </div>
       )}
     </div>

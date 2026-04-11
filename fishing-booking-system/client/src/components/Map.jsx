@@ -12,7 +12,7 @@ const Map = ({ user }) => {
 
   useEffect(() => {
     loadPlaces();
-    const interval = setInterval(loadPlaces, 30000);
+    const interval = setInterval(loadPlaces, 5000); // Обновление каждые 5 секунд для таймера
     return () => clearInterval(interval);
   }, []);
 
@@ -44,7 +44,6 @@ const Map = ({ user }) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         setMapImage(e.target.result);
-        // Сохраняем в localStorage
         localStorage.setItem('mapImage', e.target.result);
       };
       reader.readAsDataURL(file);
@@ -65,7 +64,6 @@ const Map = ({ user }) => {
 
   return (
     <div>
-      {/* Кнопка загрузки своей карты (только для менеджера/админа) */}
       {(user.role === 'manager' || user.role === 'admin') && (
         <div style={{ marginBottom: '10px' }}>
           <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
@@ -103,13 +101,10 @@ const Map = ({ user }) => {
         }}
       >
         {!mapImage ? (
-          // Стандартная SVG карта
           <svg className="map-svg" viewBox="0 0 600 500">
-            {/* Озеро */}
             <ellipse cx="300" cy="250" rx="250" ry="180" fill="#4A90E2" opacity="0.6" />
             <ellipse cx="300" cy="250" rx="230" ry="160" fill="#5BA3E6" opacity="0.4" />
             
-            {/* Места для рыбалки */}
             {places.map(place => (
               <g key={place.id} onClick={() => handlePlaceClick(place)}>
                 <circle
@@ -143,11 +138,22 @@ const Map = ({ user }) => {
                     🐟 {place.bookingInfo.catchAmount} кг
                   </text>
                 )}
+                {place.status === 'occupied' && place.bookingInfo && (
+                  <text
+                    x={place.coordinates.x}
+                    y={place.coordinates.y - 30}
+                    textAnchor="middle"
+                    fill="#333"
+                    fontSize="11"
+                    fontWeight="bold"
+                  >
+                    ⏱️ {Math.ceil(place.bookingInfo.timeRemaining / 3600000)}ч
+                  </text>
+                )}
               </g>
             ))}
           </svg>
         ) : (
-          // Места поверх загруженной карты
           <div style={{ position: 'relative', width: '100%', height: '100%' }}>
             {places.map(place => (
               <div
@@ -163,34 +169,40 @@ const Map = ({ user }) => {
               >
                 <div
                   style={{
-                    width: '40px',
-                    height: '40px',
+                    width: '45px',
+                    height: '45px',
                     borderRadius: '50%',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     background: place.status === 'free' ? '#4CAF50' :
                                place.status === 'occupied' ? '#f44336' : '#ff9800',
                     color: 'white',
                     fontWeight: 'bold',
-                    fontSize: '14px',
+                    fontSize: '12px',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
                     border: '2px solid white'
                   }}
                 >
-                  {place.name}
+                  <div>{place.name}</div>
+                  {place.status === 'occupied' && place.bookingInfo && (
+                    <div style={{ fontSize: '10px' }}>
+                      {Math.ceil(place.bookingInfo.timeRemaining / 3600000)}ч
+                    </div>
+                  )}
                 </div>
                 {place.bookingInfo && place.bookingInfo.catchAmount > 0 && (
                   <div
                     style={{
                       position: 'absolute',
-                      top: '45px',
+                      top: '50px',
                       left: '50%',
                       transform: 'translateX(-50%)',
                       background: 'white',
                       padding: '2px 8px',
                       borderRadius: '12px',
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 'bold',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                       whiteSpace: 'nowrap'

@@ -39,9 +39,11 @@ const Profile = ({ user }) => {
       setMessage('Профиль успешно обновлен');
       setEditing(false);
       loadProfile();
+      setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       setMessage('Ошибка при обновлении профиля');
       console.error('Error updating profile:', error);
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 
@@ -54,10 +56,49 @@ const Profile = ({ user }) => {
       await apiService.cancelBooking(bookingId);
       loadProfile();
       setMessage('Бронирование отменено');
+      setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       setMessage('Ошибка при отмене бронирования');
       console.error('Error cancelling booking:', error);
+      setTimeout(() => setMessage(''), 3000);
     }
+  };
+
+  const handleRequestCancel = async (bookingId) => {
+    if (!window.confirm('Отправить запрос на отмену бронирования менеджеру?')) {
+      return;
+    }
+
+    try {
+      await apiService.requestCancelBooking(bookingId);
+      loadProfile();
+      setMessage('Запрос на отмену отправлен менеджеру');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      setMessage('Ошибка при отправке запроса');
+      console.error('Error requesting cancel:', error);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  const getStatusText = (status) => {
+    const statusMap = {
+      pending: 'Ожидает подтверждения',
+      approved: 'Подтверждено',
+      rejected: 'Отклонено',
+      cancelled: 'Отменено'
+    };
+    return statusMap[status] || status;
+  };
+
+  const getStatusColor = (status) => {
+    const colorMap = {
+      pending: '#ff9800',
+      approved: '#4CAF50',
+      rejected: '#f44336',
+      cancelled: '#999'
+    };
+    return colorMap[status] || '#999';
   };
 
   if (loading) {
@@ -69,7 +110,12 @@ const Profile = ({ user }) => {
       <div className="card">
         <h2>👤 Профиль пользователя</h2>
         
-        {message && <div className="success">{message}</div>}
+        {message && <div className="success" style={{ 
+          padding: '10px', 
+          background: '#d4edda', 
+          borderRadius: '4px',
+          marginBottom: '15px'
+        }}>{message}</div>}
         
         {editing ? (
           <form onSubmit={handleUpdate} style={{ marginTop: '20px' }}>
@@ -93,19 +139,28 @@ const Profile = ({ user }) => {
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button type="submit" className="btn btn-primary">Сохранить</button>
-              <button type="button" className="btn" onClick={() => setEditing(false)}>
+              <button type="button" className="btn" onClick={() => {
+                setEditing(false);
+                setFormData({
+                  username: profile?.username || '',
+                  email: profile?.email || ''
+                });
+              }}>
                 Отмена
               </button>
             </div>
           </form>
         ) : (
           <div style={{ marginTop: '20px' }}>
-            <p><strong>Имя:</strong> {profile?.username}</p>
+            <p><strong>Имя пользователя:</strong> {profile?.username}</p>
             <p><strong>Email:</strong> {profile?.email}</p>
-            <p><strong>Роль:</strong> {profile?.role}</p>
-            <p><strong>Дата регистрации:</strong> {new Date(profile?.createdAt).toLocaleDateString()}</p>
+            <p><strong>Роль:</strong> {
+              profile?.role === 'admin' ? 'Администратор' :
+              profile?.role === 'manager' ? 'Управляющий' : 'Пользователь'
+            }</p>
+            <p><strong>Дата регистрации:</strong> {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('ru-RU') : 'Неизвестно'}</p>
             <button className="btn btn-primary" onClick={() => setEditing(true)}>
-              Редактировать
+              Редактировать профиль
             </button>
           </div>
         )}
@@ -114,7 +169,9 @@ const Profile = ({ user }) => {
       <div className="card">
         <h3>📅 Мои бронирования</h3>
         {bookings.length === 0 ? (
-          <p>У вас пока нет бронирований</p>
+          <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
+            У вас пока нет бронирований
+          </p>
         ) : (
           <table className="stats-table">
             <thead>
@@ -123,39 +180,67 @@ const Profile = ({ user }) => {
                 <th>Начало</th>
                 <th>Окончание</th>
                 <th>Статус</th>
+                <th>Улов</th>
                 <th>Действия</th>
               </tr>
             </thead>
             <tbody>
               {bookings.map(booking => (
                 <tr key={booking.id}>
-                  <td>{booking.placeId}</td>
-                  <td>{new Date(booking.startTime).toLocaleString()}</td>
-                  <td>{new Date(booking.endTime).toLocaleString()}</td>
+                  <td>Место #{booking.placeId}</td>
+                  <td>{new Date(booking.startTime).toLocaleString('ru-RU')}</td>
+                  <td>{new Date(booking.endTime).toLocaleString('ru-RU')}</td>
                   <td>
                     <span style={{
                       padding: '4px 8px',
                       borderRadius: '4px',
-                      background: 
-                        booking.status === 'approved' ? '#4CAF50' :
-                        booking.status === 'pending' ? '#ff9800' :
-                        booking.status === 'rejected' ? '#f44336' : '#999',
+                      background: getStatusColor(booking.status),
                       color: 'white'
                     }}>
-                      {booking.status === 'approved' ? 'Подтверждено' :
-                       booking.status === 'pending' ? 'Ожидает' :
-                       booking.status === 'rejected' ? 'Отклонено' : 'Отменено'}
+                      {getStatusText(booking.status)}
                     </span>
+                    {booking.cancelRequested && (
+                      <div style={{ fontSize: '12px', color: '#ff9800', marginTop: '5px' }}>
+                        Запрос на отмену отправлен
+                      </div>
+                    )}
                   </td>
                   <td>
-                    {(booking.status === 'approved' || booking.status === 'pending') && (
+                    {booking.catchAmount > 0 ? `🐟 ${booking.catchAmount} кг` : '-'}
+                  </td>
+                  <td>
+                    {booking.status === 'approved' && !booking.cancelRequested && (
+                      <>
+                        <button
+                          className="btn btn-warning"
+                          style={{ padding: '4px 8px', marginRight: '5px', fontSize: '12px' }}
+                          onClick={() => handleRequestCancel(booking.id)}
+                        >
+                          Запросить отмену
+                        </button>
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px', fontSize: '12px' }}
+                          onClick={() => handleCancelBooking(booking.id)}
+                        >
+                          Отменить сразу
+                        </button>
+                      </>
+                    )}
+                    {booking.status === 'pending' && (
                       <button
                         className="btn btn-danger"
-                        style={{ padding: '4px 8px' }}
+                        style={{ padding: '4px 8px', fontSize: '12px' }}
                         onClick={() => handleCancelBooking(booking.id)}
                       >
-                        Отменить
+                        Отменить заявку
                       </button>
+                    )}
+                    {booking.status === 'cancelled' && (
+                      <span style={{ color: '#999' }}>Отменено</span>
+                    )}
+                    {booking.status === 'rejected' && (
+                      <span style={{ color: '#f44336' }}>Отклонено</span>
                     )}
                   </td>
                 </tr>
@@ -163,6 +248,37 @@ const Profile = ({ user }) => {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="card">
+        <h3>📊 Моя статистика</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
+          <div style={{ 
+            padding: '20px', 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '8px',
+            color: 'white',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '14px', opacity: 0.9 }}>Всего бронирований</div>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', marginTop: '10px' }}>
+              {bookings.length}
+            </div>
+          </div>
+          
+          <div style={{ 
+            padding: '20px', 
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            borderRadius: '8px',
+            color: 'white',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '14px', opacity: 0.9 }}>Активных броней</div>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', marginTop: '10px' }}>
+              {bookings.filter(b => b.status === 'approved').length}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
