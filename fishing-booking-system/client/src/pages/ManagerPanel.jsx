@@ -17,7 +17,7 @@ const ManagerPanel = () => {
   const [catchData, setCatchData] = useState({
     userId: '',
     bookingId: '',
-    amount: 0
+    amount: ''
   });
   const [loading, setLoading] = useState(true);
   const [cancelRequests, setCancelRequests] = useState([]);
@@ -27,37 +27,35 @@ const ManagerPanel = () => {
   }, []);
 
   const loadData = async () => {
-  try {
-    const [bookings, placesData, activeUsers, allBookings] = await Promise.all([
-      apiService.getPendingBookings(),
-      apiService.getPlaces(),
-      apiService.getActiveUsers(), // Используем новый эндпоинт вместо getAllUsers
-      apiService.getAllBookings()
-    ]);
-    
-    setPendingBookings(bookings);
-    setPlaces(placesData);
-    setUsers(activeUsers); // Теперь это только активные пользователи
-    
-    // Фильтруем активные бронирования
-    const now = new Date();
-    const active = allBookings.filter(b => 
-      b.status === 'approved' && 
-      new Date(b.startTime) <= now && 
-      new Date(b.endTime) >= now
-    );
-    setActiveBookings(active);
-    
-    // Заявки на отмену
-    const cancelReqs = allBookings.filter(b => b.cancelRequested === true);
-    setCancelRequests(cancelReqs);
-    
-  } catch (error) {
-    console.error('Error loading data:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      const [bookings, placesData, activeUsers, allBookings] = await Promise.all([
+        apiService.getPendingBookings(),
+        apiService.getPlaces(),
+        apiService.getActiveUsers(),
+        apiService.getAllBookings()
+      ]);
+      
+      setPendingBookings(bookings);
+      setPlaces(placesData);
+      setUsers(activeUsers);
+      
+      const now = new Date();
+      const active = allBookings.filter(b => 
+        b.status === 'approved' && 
+        new Date(b.startTime) <= now && 
+        new Date(b.endTime) >= now
+      );
+      setActiveBookings(active);
+      
+      const cancelReqs = allBookings.filter(b => b.cancelRequested === true);
+      setCancelRequests(cancelReqs);
+      
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleApproveBooking = async (bookingId) => {
     try {
@@ -151,21 +149,31 @@ const ManagerPanel = () => {
   const handleAddCatch = async (e) => {
     e.preventDefault();
     
+    const amount = parseFloat(catchData.amount);
+    
     if (!catchData.userId || !catchData.bookingId || !catchData.amount) {
       alert('Заполните все поля');
       return;
     }
     
+    if (isNaN(amount) || amount <= 0) {
+      alert('Введите корректное количество улова (больше 0)');
+      return;
+    }
+    
     try {
-      await apiService.addCatch(catchData);
+      await apiService.addCatch({
+        userId: catchData.userId,
+        bookingId: catchData.bookingId,
+        amount: amount
+      });
       
-      // Находим пользователя и бронь для отображения
       const user = users.find(u => u.id === catchData.userId);
       const booking = activeBookings.find(b => b.id === catchData.bookingId);
       
-      alert(`Улов добавлен!\nПользователь: ${user?.username || 'Неизвестно'}\nМесто: ${booking?.placeId || 'Неизвестно'}\nКоличество: ${catchData.amount} кг`);
+      alert(`Улов добавлен!\nПользователь: ${user?.username || 'Неизвестно'}\nМесто: ${booking?.placeId || 'Неизвестно'}\nКоличество: ${amount} кг`);
       
-      setCatchData({ userId: '', bookingId: '', amount: 0 });
+      setCatchData({ userId: '', bookingId: '', amount: '' });
       loadData();
     } catch (error) {
       alert('Ошибка при добавлении улова');
@@ -173,13 +181,11 @@ const ManagerPanel = () => {
     }
   };
 
-  // Получаем активных пользователей (тех, у кого есть активные брони)
   const getActiveUsers = () => {
     const activeUserIds = activeBookings.map(b => b.userId);
     return users.filter(u => activeUserIds.includes(u.id));
   };
 
-  // Получаем бронирования для выбранного пользователя
   const getBookingsForUser = (userId) => {
     return activeBookings.filter(b => b.userId === userId);
   };
@@ -494,7 +500,16 @@ const ManagerPanel = () => {
           <h3>Добавить улов</h3>
           
           {activeUsers.length === 0 ? (
-            <p>Нет активных пользователей на рыбалке</p>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '40px', 
+              background: 'rgba(74, 144, 226, 0.1)', 
+              borderRadius: '12px',
+              color: '#666'
+            }}>
+              <p style={{ fontSize: '18px', marginBottom: '10px' }}>🎣 Нет активных пользователей</p>
+              <p>В данный момент никто не рыбачит. Дождитесь начала бронирования.</p>
+            </div>
           ) : (
             <form onSubmit={handleAddCatch} style={{ maxWidth: '500px' }}>
               <div className="form-group">
@@ -505,11 +520,11 @@ const ManagerPanel = () => {
                     setCatchData({
                       ...catchData,
                       userId: e.target.value,
-                      bookingId: '' // Сбрасываем выбор брони
+                      bookingId: ''
                     });
                   }}
                   required
-                  style={{ width: '100%', padding: '10px' }}
+                  style={{ width: '100%', padding: '12px' }}
                 >
                   <option value="">-- Выберите пользователя --</option>
                   {activeUsers.map(user => (
@@ -527,7 +542,7 @@ const ManagerPanel = () => {
                     value={catchData.bookingId}
                     onChange={(e) => setCatchData({...catchData, bookingId: e.target.value})}
                     required
-                    style={{ width: '100%', padding: '10px' }}
+                    style={{ width: '100%', padding: '12px' }}
                   >
                     <option value="">-- Выберите бронирование --</option>
                     {getBookingsForUser(catchData.userId).map(booking => {
@@ -535,6 +550,7 @@ const ManagerPanel = () => {
                       return (
                         <option key={booking.id} value={booking.id}>
                           {place?.name || booking.placeId} - до {new Date(booking.endTime).toLocaleTimeString()}
+                          {booking.catchAmount > 0 && ` (уже поймано: ${booking.catchAmount} кг)`}
                         </option>
                       );
                     })}
@@ -549,14 +565,57 @@ const ManagerPanel = () => {
                   min="0.1"
                   step="0.1"
                   value={catchData.amount}
-                  onChange={(e) => setCatchData({...catchData, amount: parseFloat(e.target.value)})}
+                  onChange={(e) => setCatchData({...catchData, amount: e.target.value})}
+                  onKeyDown={(e) => {
+                    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+                    if (!/[0-9.,]/.test(e.key) && !allowedKeys.includes(e.key)) {
+                      e.preventDefault();
+                    }
+                    if (e.key === ',') {
+                      e.preventDefault();
+                      const input = e.target;
+                      const start = input.selectionStart;
+                      const end = input.selectionEnd;
+                      const newValue = input.value.slice(0, start) + '.' + input.value.slice(end);
+                      setCatchData({...catchData, amount: newValue});
+                    }
+                    if ((e.key === '.' || e.key === ',') && e.target.value.includes('.')) {
+                      e.preventDefault();
+                    }
+                  }}
                   required
-                  style={{ width: '100%', padding: '10px' }}
+                  style={{ width: '100%', padding: '12px' }}
+                  placeholder="Например: 0.2, 1.5, 3.7"
                 />
+                <small style={{ 
+                  color: '#666', 
+                  marginTop: '8px', 
+                  display: 'block',
+                  fontSize: '13px'
+                }}>
+                  💡 Можно вводить дробные числа с точностью до 0.1 кг
+                </small>
               </div>
               
-              <button type="submit" className="btn btn-primary">
-                Добавить улов
+              {catchData.amount && parseFloat(catchData.amount) > 0 && (
+                <div style={{ 
+                  padding: '12px', 
+                  background: 'rgba(74, 144, 226, 0.1)', 
+                  borderRadius: '8px',
+                  marginBottom: '20px'
+                }}>
+                  <p style={{ margin: 0, color: '#2c3e50' }}>
+                    <strong>Будет добавлено:</strong> {parseFloat(catchData.amount).toFixed(1)} кг рыбы
+                  </p>
+                </div>
+              )}
+              
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '12px' }}
+              >
+                🐟 Добавить улов
               </button>
             </form>
           )}

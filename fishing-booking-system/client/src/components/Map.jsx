@@ -12,7 +12,7 @@ const Map = ({ user }) => {
 
   useEffect(() => {
     loadPlaces();
-    const interval = setInterval(loadPlaces, 5000); // Обновление каждые 5 секунд для таймера
+    const interval = setInterval(loadPlaces, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -37,7 +37,6 @@ const Map = ({ user }) => {
     loadPlaces();
   };
 
-  // Функция для загрузки изображения карты
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -50,7 +49,6 @@ const Map = ({ user }) => {
     }
   };
 
-  // Загружаем сохраненную карту при старте
   useEffect(() => {
     const savedMap = localStorage.getItem('mapImage');
     if (savedMap) {
@@ -67,7 +65,7 @@ const Map = ({ user }) => {
       {(user.role === 'manager' || user.role === 'admin') && (
         <div style={{ marginBottom: '10px' }}>
           <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
-            📸 Загрузить свою карту
+             Загрузить свою карту
             <input
               type="file"
               accept="image/*"
@@ -132,8 +130,9 @@ const Map = ({ user }) => {
                     x={place.coordinates.x}
                     y={place.coordinates.y + 30}
                     textAnchor="middle"
-                    fill="#333"
+                    className="catch-amount-text"
                     fontSize="12"
+                    fontWeight="bold"
                   >
                     🐟 {place.bookingInfo.catchAmount} кг
                   </text>
@@ -194,18 +193,21 @@ const Map = ({ user }) => {
                 </div>
                 {place.bookingInfo && place.bookingInfo.catchAmount > 0 && (
                   <div
+                    className="catch-amount-badge"
                     style={{
                       position: 'absolute',
                       top: '50px',
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      background: 'white',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '11px',
+                      background: '#1a2a3a',
+                      color: '#ffffff',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
                       fontWeight: 'bold',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                      whiteSpace: 'nowrap'
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                      whiteSpace: 'nowrap',
+                      border: '1px solid #4A90E2'
                     }}
                   >
                     🐟 {place.bookingInfo.catchAmount} кг

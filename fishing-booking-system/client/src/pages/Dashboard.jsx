@@ -13,19 +13,19 @@ const Dashboard = ({ user }) => {
           className={`btn ${activeTab === 'map' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('map')}
         >
-          🗺️ Карта мест
+          Карта мест
         </button>
         <button 
           className={`btn ${activeTab === 'stats' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('stats')}
         >
-          📊 Статистика
+          Статистика
         </button>
         <button 
           className={`btn ${activeTab === 'chat' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('chat')}
         >
-          💬 Чат
+          Чат
         </button>
       </div>
 

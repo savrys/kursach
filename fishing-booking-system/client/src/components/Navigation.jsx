@@ -14,7 +14,7 @@ const Navigation = ({ user, setUser }) => {
     <nav className="navbar">
       <div className="navbar-container">
         <Link to="/" className="navbar-brand">
-          🎣 Рыболовная база
+           Рыболовная база
         </Link>
         
         <div className="navbar-menu">

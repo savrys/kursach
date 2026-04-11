@@ -253,24 +253,31 @@ exports.addCatch = async (req, res) => {
         const { userId, bookingId, amount } = req.body;
         const db = req.app.locals.readDB();
         
+        // Преобразуем amount в число с плавающей точкой
+        const catchAmount = parseFloat(amount);
+        
+        if (isNaN(catchAmount) || catchAmount <= 0) {
+            return res.status(400).json({ message: 'Invalid catch amount' });
+        }
+        
         const booking = db.bookings.find(b => b.id === bookingId);
         if (!booking) {
             return res.status(404).json({ message: 'Booking not found' });
         }
 
-        // Обновляем улов в бронировании
-        booking.catchAmount = (booking.catchAmount || 0) + amount;
+        // Обновляем улов в бронировании (округляем до 1 знака)
+        booking.catchAmount = Math.round(((booking.catchAmount || 0) + catchAmount) * 10) / 10;
         
         // Обновляем статистику рыбалки
         const existingStat = db.stats.fishing.find(s => s.userId === userId);
         if (existingStat) {
-            existingStat.totalCatch += amount;
+            existingStat.totalCatch = Math.round((existingStat.totalCatch + catchAmount) * 10) / 10;
         } else {
             const user = db.users.find(u => u.id === userId);
             db.stats.fishing.push({
                 userId,
                 username: user?.username || 'Unknown',
-                totalCatch: amount
+                totalCatch: Math.round(catchAmount * 10) / 10
             });
         }
         
@@ -284,6 +291,7 @@ exports.addCatch = async (req, res) => {
             totalCatch: db.stats.fishing.find(s => s.userId === userId)?.totalCatch
         });
     } catch (error) {
+        console.error('Add catch error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
