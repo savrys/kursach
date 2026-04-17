@@ -60,11 +60,13 @@ export const apiService = {
   
   // Чаты
   getChats: () => api.get('/chats').then(res => res.data),
+  markMessageAsRead: (messageId) => api.put(`/chats/messages/${messageId}/read`).then(res => res.data),
   createChat: () => api.post('/chats').then(res => res.data),
   getMessages: (chatId) => api.get(`/chats/${chatId}/messages`).then(res => res.data),
   sendMessage: (chatId, text) => 
     api.post(`/chats/${chatId}/messages`, { text }).then(res => res.data),
   deleteChat: (chatId) => api.delete(`/chats/${chatId}`).then(res => res.data),
+  
   
   // Админ
   getAllUsers: () => api.get('/admin/users').then(res => res.data),
@@ -83,6 +85,8 @@ export const apiService = {
   clearFishingStats: () => api.delete('/manager/stats/fishing').then(res => res.data),
   clearVisitsStats: () => api.delete('/manager/stats/visits').then(res => res.data),
   getActiveUsers: () => api.get('/manager/active-users').then(res => res.data),
+  uploadPlaceImage: (placeId, image) => api.post(`/manager/places/${placeId}/image`, { image }).then(res => res.data),
+  deletePlaceImage: (placeId) => api.delete(`/manager/places/${placeId}/image`).then(res => res.data),
   
   // Изображение карты
   uploadMapImage: (image) => api.post('/manager/map-image', { image }).then(res => res.data),
@@ -98,4 +102,5 @@ export const apiService = {
   getTopFishermen: () => api.get('/stats/fishing/top').then(res => res.data),
   getTopVisitors: () => api.get('/stats/visits/top').then(res => res.data),
   updateVisitTime: (hours) => api.post('/stats/visits/update', { hours }).then(res => res.data)
+  
 };

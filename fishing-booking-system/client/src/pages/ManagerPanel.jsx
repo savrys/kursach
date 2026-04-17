@@ -20,7 +20,6 @@ const ManagerPanel = () => {
     amount: ''
   });
   const [loading, setLoading] = useState(true);
-  const [cancelRequests, setCancelRequests] = useState([]);
 
   useEffect(() => {
     loadData();
@@ -46,9 +45,6 @@ const ManagerPanel = () => {
         new Date(b.endTime) >= now
       );
       setActiveBookings(active);
-      
-      const cancelReqs = allBookings.filter(b => b.cancelRequested === true);
-      setCancelRequests(cancelReqs);
       
     } catch (error) {
       console.error('Error loading data:', error);
@@ -89,28 +85,6 @@ const ManagerPanel = () => {
     } catch (error) {
       alert('Ошибка при отмене бронирования');
       console.error('Error cancelling booking:', error);
-    }
-  };
-
-  const handleApproveCancelRequest = async (bookingId) => {
-    try {
-      await apiService.approveCancelRequest(bookingId);
-      loadData();
-      alert('Заявка на отмену одобрена');
-    } catch (error) {
-      alert('Ошибка при одобрении отмены');
-      console.error('Error approving cancel:', error);
-    }
-  };
-
-  const handleRejectCancelRequest = async (bookingId) => {
-    try {
-      await apiService.rejectCancelRequest(bookingId);
-      loadData();
-      alert('Заявка на отмену отклонена');
-    } catch (error) {
-      alert('Ошибка при отклонении отмены');
-      console.error('Error rejecting cancel:', error);
     }
   };
 
@@ -212,12 +186,6 @@ const ManagerPanel = () => {
           onClick={() => setActiveTab('active')}
         >
           Активные брони ({activeBookings.length})
-        </button>
-        <button 
-          className={`btn ${activeTab === 'cancelRequests' ? 'btn-primary' : ''}`}
-          onClick={() => setActiveTab('cancelRequests')}
-        >
-          Заявки на отмену ({cancelRequests.length})
         </button>
         <button 
           className={`btn ${activeTab === 'places' ? 'btn-primary' : ''}`}
@@ -326,55 +294,6 @@ const ManagerPanel = () => {
         </div>
       )}
 
-      {activeTab === 'cancelRequests' && (
-        <div>
-          <h3>Заявки на отмену бронирования</h3>
-          {cancelRequests.length === 0 ? (
-            <p>Нет заявок на отмену</p>
-          ) : (
-            <table className="stats-table">
-              <thead>
-                <tr>
-                  <th>Пользователь</th>
-                  <th>Место</th>
-                  <th>Дата брони</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cancelRequests.map(booking => {
-                  const user = users.find(u => u.id === booking.userId);
-                  const place = places.find(p => p.id === booking.placeId);
-                  return (
-                    <tr key={booking.id}>
-                      <td>{user?.username || 'Неизвестно'}</td>
-                      <td>{place?.name || booking.placeId}</td>
-                      <td>{new Date(booking.startTime).toLocaleDateString()}</td>
-                      <td>
-                        <button
-                          className="btn btn-primary"
-                          style={{ marginRight: '10px', padding: '4px 8px' }}
-                          onClick={() => handleApproveCancelRequest(booking.id)}
-                        >
-                          ✓ Одобрить отмену
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          style={{ padding: '4px 8px' }}
-                          onClick={() => handleRejectCancelRequest(booking.id)}
-                        >
-                          ✕ Отклонить
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
       {activeTab === 'places' && (
         <div>
           <button 
@@ -457,6 +376,7 @@ const ManagerPanel = () => {
                 <th>Координаты</th>
                 <th>Вместимость</th>
                 <th>Статус</th>
+                <th>Фото</th>
                 <th>Действия</th>
               </tr>
             </thead>
@@ -478,6 +398,13 @@ const ManagerPanel = () => {
                       {place.status === 'free' ? 'Свободно' :
                        place.status === 'occupied' ? 'Занято' : 'Ожидание'}
                     </span>
+                  </td>
+                  <td>
+                    {place.image ? (
+                      <span style={{ color: '#4CAF50', fontWeight: 'bold' }}>✓ Есть</span>
+                    ) : (
+                      <span style={{ color: '#999' }}>—</span>
+                    )}
                   </td>
                   <td>
                     <button

@@ -157,3 +157,28 @@ exports.deleteChat = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+// Отметить сообщение как прочитанное
+// Отметить сообщение как прочитанное
+exports.markAsRead = async (req, res) => {
+    try {
+        const { messageId } = req.params;
+        const db = req.app.locals.readDB();
+        
+        const message = db.messages.find(m => m.id === messageId);
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+        
+        message.read = true;
+        
+        if (!req.app.locals.writeDB(db)) {
+            return res.status(500).json({ message: 'Error updating message' });
+        }
+        
+        res.json({ message: 'Message marked as read', messageId });
+    } catch (error) {
+        console.error('Mark as read error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};

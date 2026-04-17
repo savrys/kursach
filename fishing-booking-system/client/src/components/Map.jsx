@@ -51,6 +51,7 @@ const Map = ({ user }) => {
   };
 
   // Функция сжатия изображения
+  // Функция сжатия изображения (без обрезки, сохраняет пропорции)
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -59,27 +60,31 @@ const Map = ({ user }) => {
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          
-          const maxWidth = 1000;
-          const maxHeight = 700;
-          
+        
+        // Сохраняем оригинальные размеры
           let width = img.width;
           let height = img.height;
-          
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
+        
+        // Максимальный размер только если изображение ОЧЕНЬ большое (> 2000px)
+          const maxDimension = 2000;
+        
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = (height * maxDimension) / width;
+              width = maxDimension;
+            } else {
+              width = (width * maxDimension) / height;
+              height = maxDimension;
+            }
           }
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height;
-            height = maxHeight;
-          }
-          
+        
           canvas.width = width;
           canvas.height = height;
-          
+        
+        // Рисуем изображение
           ctx.drawImage(img, 0, 0, width, height);
-          
+        
+        // Сжимаем качество до 70% для JPEG
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
           resolve(compressedDataUrl);
         };
@@ -168,7 +173,7 @@ const Map = ({ user }) => {
               className="btn btn-warning" 
               onClick={handleResetMap}
             >
-              🔄 Сбросить на стандартную
+               Сбросить на стандартную
             </button>
           )}
           <span style={{ fontSize: '13px', color: '#666', marginLeft: '10px' }}>
@@ -182,9 +187,10 @@ const Map = ({ user }) => {
         style={{ 
           position: 'relative',
           backgroundImage: mapImage ? `url(${mapImage})` : 'none',
-          backgroundSize: 'cover',
+          backgroundSize: 'contain',
           backgroundPosition: 'center',
-          backgroundColor: mapImage ? 'transparent' : '#e8f4f8'
+          backgroundRepeat: 'no-repeat',
+          backgroundColor: mapImage ? '#1a2a3a' : '#e8f4f8'
         }}
       >
         {!mapImage ? (

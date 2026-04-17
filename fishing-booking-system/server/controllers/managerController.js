@@ -382,3 +382,52 @@ exports.deleteMapImage = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+// Загрузка фото для места
+exports.uploadPlaceImage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { image } = req.body;
+        const db = req.app.locals.readDB();
+        
+        const place = db.places.find(p => p.id === id);
+        if (!place) {
+            return res.status(404).json({ message: 'Place not found' });
+        }
+        
+        place.image = image;
+        
+        if (!req.app.locals.writeDB(db)) {
+            return res.status(500).json({ message: 'Error saving place image' });
+        }
+        
+        res.json({ message: 'Place image saved successfully', image: image });
+    } catch (error) {
+        console.error('Upload place image error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Удаление фото места
+exports.deletePlaceImage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const db = req.app.locals.readDB();
+        
+        const place = db.places.find(p => p.id === id);
+        if (!place) {
+            return res.status(404).json({ message: 'Place not found' });
+        }
+        
+        place.image = null;
+        
+        if (!req.app.locals.writeDB(db)) {
+            return res.status(500).json({ message: 'Error deleting place image' });
+        }
+        
+        res.json({ message: 'Place image deleted successfully' });
+    } catch (error) {
+        console.error('Delete place image error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 
-const Chat = ({ user }) => {
+const Chat = ({ user, onMessagesRead }) => {
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -44,6 +44,18 @@ const Chat = ({ user }) => {
     try {
       const data = await apiService.getMessages(chatId);
       setMessages(data);
+      
+      // Отмечаем непрочитанные сообщения как прочитанные
+      const unreadMessages = data.filter(m => m.senderId !== user.id && !m.read);
+      if (unreadMessages.length > 0) {
+        for (const msg of unreadMessages) {
+          await apiService.markMessageAsRead(msg.id);
+        }
+        // Уведомляем родительский компонент что сообщения прочитаны
+        if (onMessagesRead) {
+          onMessagesRead();
+        }
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
     }
@@ -89,61 +101,60 @@ const Chat = ({ user }) => {
     }
   };
 
+  const handleChatSelect = (chat) => {
+    setSelectedChat(chat);
+    loadMessages(chat.id);
+  };
+
   if (loading) {
     return <div className="loading">Загрузка чатов...</div>;
   }
 
   return (
     <div className="card">
-      <h2>Чат с администрацией</h2>
+      <h2>💬 Чат с администрацией</h2>
       
       <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
         {/* Список чатов */}
-        <div style={{ width: '250px', borderRight: '1px solid #ddd', paddingRight: '20px' }}>
+        <div className="chat-list">
           {user.role === 'user' && chats.length === 0 && (
-            <button className="btn btn-primary" onClick={createChat}>
-              Начать чат
+            <button className="create-chat-btn" onClick={createChat}>
+              ✨ Начать чат
             </button>
           )}
           
-          <div style={{ marginTop: '10px' }}>
+          {user.role === 'user' && chats.length > 0 && (
+            <button className="create-chat-btn" onClick={createChat} style={{ marginBottom: '15px' }}>
+              ✨ Новый чат
+            </button>
+          )}
+          
+          <div>
             {chats.map(chat => (
               <div
                 key={chat.id}
-                style={{
-                  padding: '10px',
-                  marginBottom: '5px',
-                  background: selectedChat?.id === chat.id ? '#e3f2fd' : '#f5f5f5',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-                onClick={() => {
-                  setSelectedChat(chat);
-                  loadMessages(chat.id);
-                }}
+                className={`chat-list-item ${selectedChat?.id === chat.id ? 'active' : ''}`}
+                onClick={() => handleChatSelect(chat)}
               >
-                <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong>{chat.username}</strong>
-                  {chat.lastMessage && (
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                      {chat.lastMessage.text.substring(0, 20)}...
-                    </div>
+                  {(user.role === 'manager' || user.role === 'admin') && (
+                    <button
+                      className="delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteChat(chat.id);
+                      }}
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
-                {(user.role === 'manager' || user.role === 'admin') && (
-                  <button
-                    className="btn btn-danger"
-                    style={{ padding: '2px 8px', fontSize: '12px' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteChat(chat.id);
-                    }}
-                  >
-                    ✕
-                  </button>
+                {chat.lastMessage && (
+                  <div className="last-message">
+                    {chat.lastMessage.text.substring(0, 25)}
+                    {chat.lastMessage.text.length > 25 ? '...' : ''}
+                  </div>
                 )}
               </div>
             ))}
@@ -156,8 +167,10 @@ const Chat = ({ user }) => {
             <div className="chat-container">
               <div className="chat-messages">
                 {messages.length === 0 ? (
-                  <div style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
-                    Нет сообщений. Начните общение!
+                  <div className="chat-empty">
+                    <div className="chat-empty-icon">💬</div>
+                    <p>Нет сообщений</p>
+                    <p style={{ fontSize: '14px', marginTop: '10px' }}>Напишите первое сообщение!</p>
                   </div>
                 ) : (
                   messages.map(message => (
@@ -167,12 +180,15 @@ const Chat = ({ user }) => {
                         message.senderId === user.id ? 'sent' : 'received'
                       }`}
                     >
-                      <div style={{ fontSize: '12px', marginBottom: '5px', opacity: 0.8 }}>
+                      <div className="message-sender">
                         {message.senderId === user.id ? 'Вы' : selectedChat.username}
                       </div>
                       <div>{message.text}</div>
-                      <div style={{ fontSize: '10px', marginTop: '5px', opacity: 0.7 }}>
-                        {new Date(message.createdAt).toLocaleTimeString()}
+                      <div className="message-time">
+                        {new Date(message.createdAt).toLocaleTimeString('ru-RU', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </div>
                     </div>
                   ))
@@ -187,14 +203,16 @@ const Chat = ({ user }) => {
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Введите сообщение..."
                 />
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" disabled={!newMessage.trim()}>
                   Отправить
                 </button>
               </form>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', color: '#666', padding: '50px' }}>
-              Выберите чат или создайте новый
+            <div className="chat-empty">
+              <div className="chat-empty-icon">👥</div>
+              <p>Выберите чат</p>
+              <p style={{ fontSize: '14px', marginTop: '10px' }}>или создайте новый</p>
             </div>
           )}
         </div>
