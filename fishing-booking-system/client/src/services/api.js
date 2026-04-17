@@ -84,6 +84,11 @@ export const apiService = {
   clearVisitsStats: () => api.delete('/manager/stats/visits').then(res => res.data),
   getActiveUsers: () => api.get('/manager/active-users').then(res => res.data),
   
+  // Изображение карты
+  uploadMapImage: (image) => api.post('/manager/map-image', { image }).then(res => res.data),
+  getMapImage: () => api.get('/settings/map-image').then(res => res.data), // ИЗМЕНЕНО: публичный эндпоинт
+  deleteMapImage: () => api.delete('/manager/map-image').then(res => res.data),
+  
   // Пользователь
   getProfile: () => api.get('/user/profile').then(res => res.data),
   updateProfile: (data) => api.put('/user/profile', data).then(res => res.data),

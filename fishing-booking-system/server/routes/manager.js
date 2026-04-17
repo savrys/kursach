@@ -19,5 +19,6 @@ router.delete('/places/:id', managerController.deletePlace);
 router.post('/catches', managerController.addCatch);
 router.delete('/stats/fishing', managerController.clearFishingStats);
 router.delete('/stats/visits', managerController.clearVisitsStats);
-
+router.post('/map-image', managerController.uploadMapImage);
+router.delete('/map-image', managerController.deleteMapImage);
 module.exports = router;

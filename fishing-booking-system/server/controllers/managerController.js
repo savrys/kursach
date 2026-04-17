@@ -325,3 +325,60 @@ exports.clearVisitsStats = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+// Загрузка изображения карты
+exports.uploadMapImage = async (req, res) => {
+    try {
+        const { image } = req.body;
+        const db = req.app.locals.readDB();
+        
+        if (!db.settings) {
+            db.settings = {};
+        }
+        
+        db.settings.mapImage = image;
+        
+        if (!req.app.locals.writeDB(db)) {
+            return res.status(500).json({ message: 'Error saving map image' });
+        }
+        
+        res.json({ message: 'Map image saved successfully' });
+    } catch (error) {
+        console.error('Upload map image error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Получение изображения карты
+/*
+exports.getMapImage = async (req, res) => {
+    try {
+        const db = req.app.locals.readDB();
+        const mapImage = db.settings?.mapImage || null;
+        res.json({ image: mapImage });
+    } catch (error) {
+        console.error('Get map image error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+*/
+
+// Удаление изображения карты
+exports.deleteMapImage = async (req, res) => {
+    try {
+        const db = req.app.locals.readDB();
+        
+        if (db.settings) {
+            db.settings.mapImage = null;
+        }
+        
+        if (!req.app.locals.writeDB(db)) {
+            return res.status(500).json({ message: 'Error deleting map image' });
+        }
+        
+        res.json({ message: 'Map image deleted successfully' });
+    } catch (error) {
+        console.error('Delete map image error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};

@@ -9,9 +9,11 @@ const Map = ({ user }) => {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mapImage, setMapImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadPlaces();
+    loadMapImage();
     const interval = setInterval(loadPlaces, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -27,6 +29,17 @@ const Map = ({ user }) => {
     }
   };
 
+  const loadMapImage = async () => {
+    try {
+      const response = await apiService.getMapImage();
+      if (response.image) {
+        setMapImage(response.image);
+      }
+    } catch (error) {
+      console.error('Error loading map image:', error);
+    }
+  };
+
   const handlePlaceClick = (place) => {
     setSelectedPlace(place);
   };
@@ -37,24 +50,94 @@ const Map = ({ user }) => {
     loadPlaces();
   };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
+  // Функция сжатия изображения
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setMapImage(e.target.result);
-        localStorage.setItem('mapImage', e.target.result);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          const maxWidth = 1000;
+          const maxHeight = 700;
+          
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
       };
+      reader.onerror = reject;
       reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Размер файла не должен превышать 5 МБ');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Пожалуйста, выберите изображение');
+      return;
+    }
+
+    setUploading(true);
+    
+    try {
+      const compressedImage = await compressImage(file);
+      await apiService.uploadMapImage(compressedImage);
+      setMapImage(compressedImage);
+      alert('Изображение карты сохранено. Теперь его видят все пользователи.');
+    } catch (error) {
+      console.error('Error uploading map image:', error);
+      if (error.response?.status === 413) {
+        alert('Изображение слишком большое. Попробуйте уменьшить его размер или выбрать другое.');
+      } else {
+        alert('Ошибка при сохранении изображения');
+      }
+    } finally {
+      setUploading(false);
     }
   };
 
-  useEffect(() => {
-    const savedMap = localStorage.getItem('mapImage');
-    if (savedMap) {
-      setMapImage(savedMap);
+  const handleResetMap = async () => {
+    if (!window.confirm('Вы уверены, что хотите удалить пользовательскую карту и вернуть стандартную?')) {
+      return;
     }
-  }, []);
+
+    try {
+      await apiService.deleteMapImage();
+      setMapImage(null);
+      alert('Карта сброшена на стандартную');
+    } catch (error) {
+      console.error('Error deleting map image:', error);
+      alert('Ошибка при сбросе карты');
+    }
+  };
 
   if (loading) {
     return <div className="loading">Загрузка карты...</div>;
@@ -63,28 +146,34 @@ const Map = ({ user }) => {
   return (
     <div>
       {(user.role === 'manager' || user.role === 'admin') && (
-        <div style={{ marginBottom: '10px' }}>
-          <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
-             Загрузить свою карту
+        <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <label 
+            className="btn btn-primary" 
+            style={{ 
+              cursor: uploading ? 'not-allowed' : 'pointer',
+              opacity: uploading ? 0.7 : 1
+            }}
+          >
+            {uploading ? '⏳ Загрузка...' : '📸 Загрузить карту'}
             <input
               type="file"
               accept="image/*"
               onChange={handleImageUpload}
               style={{ display: 'none' }}
+              disabled={uploading}
             />
           </label>
           {mapImage && (
             <button 
               className="btn btn-warning" 
-              onClick={() => {
-                setMapImage(null);
-                localStorage.removeItem('mapImage');
-              }}
-              style={{ marginLeft: '10px' }}
+              onClick={handleResetMap}
             >
-              Сбросить карту
+              🔄 Сбросить на стандартную
             </button>
           )}
+          <span style={{ fontSize: '13px', color: '#666', marginLeft: '10px' }}>
+            {mapImage ? '✓ Пользовательская карта активна' : '○ Используется стандартная карта'}
+          </span>
         </div>
       )}
 
