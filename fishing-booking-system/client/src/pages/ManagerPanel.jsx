@@ -8,6 +8,8 @@ const ManagerPanel = () => {
   const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('bookings');
   const [showAddPlaceForm, setShowAddPlaceForm] = useState(false);
+  const [showEditPlaceForm, setShowEditPlaceForm] = useState(false);
+  const [editingPlace, setEditingPlace] = useState(null);
   const [newPlace, setNewPlace] = useState({
     name: '',
     coordinates: { x: 300, y: 250 },
@@ -20,6 +22,7 @@ const ManagerPanel = () => {
     amount: ''
   });
   const [loading, setLoading] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -88,6 +91,44 @@ const ManagerPanel = () => {
     }
   };
 
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          const maxDimension = 1200;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = (height * maxDimension) / width;
+              width = maxDimension;
+            } else {
+              width = (width * maxDimension) / height;
+              height = maxDimension;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleAddPlace = async (e) => {
     e.preventDefault();
     try {
@@ -103,6 +144,65 @@ const ManagerPanel = () => {
     } catch (error) {
       alert('Ошибка при создании места');
       console.error('Error creating place:', error);
+    }
+  };
+
+  const handleEditPlace = (place) => {
+    setEditingPlace(place);
+    setNewPlace({
+      name: place.name,
+      coordinates: { ...place.coordinates },
+      description: place.description || '',
+      maxCapacity: place.maxCapacity
+    });
+    setShowEditPlaceForm(true);
+  };
+
+  const handleUpdatePlace = async (e) => {
+    e.preventDefault();
+    try {
+      await apiService.updatePlace(editingPlace.id, newPlace);
+      setShowEditPlaceForm(false);
+      setEditingPlace(null);
+      setNewPlace({
+        name: '',
+        coordinates: { x: 300, y: 250 },
+        description: '',
+        maxCapacity: 2
+      });
+      loadData();
+    } catch (error) {
+      alert('Ошибка при обновлении места');
+      console.error('Error updating place:', error);
+    }
+  };
+
+  const handleImageUpload = async (e, placeId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Размер файла не должен превышать 5 МБ');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Пожалуйста, выберите изображение');
+      return;
+    }
+
+    setUploadingImage(true);
+    
+    try {
+      const compressedImage = await compressImage(file);
+      await apiService.uploadPlaceImage(placeId, compressedImage);
+      loadData();
+      alert('Фото места обновлено');
+    } catch (error) {
+      console.error('Error uploading place image:', error);
+      alert('Ошибка при загрузке фото');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -304,6 +404,7 @@ const ManagerPanel = () => {
             + Добавить место
           </button>
 
+          {/* Форма добавления места */}
           {showAddPlaceForm && (
             <div className="card" style={{ marginBottom: '20px' }}>
               <h3>Новое место</h3>
@@ -318,9 +419,11 @@ const ManagerPanel = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Координаты X:</label>
+                  <label>Координаты X (0-600):</label>
                   <input
                     type="number"
+                    min="0"
+                    max="600"
                     value={newPlace.coordinates.x}
                     onChange={(e) => setNewPlace({
                       ...newPlace, 
@@ -330,9 +433,11 @@ const ManagerPanel = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Координаты Y:</label>
+                  <label>Координаты Y (0-500):</label>
                   <input
                     type="number"
+                    min="0"
+                    max="500"
                     value={newPlace.coordinates.y}
                     onChange={(e) => setNewPlace({
                       ...newPlace, 
@@ -346,6 +451,7 @@ const ManagerPanel = () => {
                   <textarea
                     value={newPlace.description}
                     onChange={(e) => setNewPlace({...newPlace, description: e.target.value})}
+                    rows="3"
                   />
                 </div>
                 <div className="form-group">
@@ -369,6 +475,87 @@ const ManagerPanel = () => {
             </div>
           )}
 
+          {/* Форма редактирования места */}
+          {showEditPlaceForm && editingPlace && (
+            <div className="card" style={{ marginBottom: '20px' }}>
+              <h3>Редактирование: {editingPlace.name}</h3>
+              <form onSubmit={handleUpdatePlace}>
+                <div className="form-group">
+                  <label>Название:</label>
+                  <input
+                    type="text"
+                    value={newPlace.name}
+                    onChange={(e) => setNewPlace({...newPlace, name: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Координаты X (0-600):</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="600"
+                    value={newPlace.coordinates.x}
+                    onChange={(e) => setNewPlace({
+                      ...newPlace, 
+                      coordinates: {...newPlace.coordinates, x: parseInt(e.target.value)}
+                    })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Координаты Y (0-500):</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="500"
+                    value={newPlace.coordinates.y}
+                    onChange={(e) => setNewPlace({
+                      ...newPlace, 
+                      coordinates: {...newPlace.coordinates, y: parseInt(e.target.value)}
+                    })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Описание:</label>
+                  <textarea
+                    value={newPlace.description}
+                    onChange={(e) => setNewPlace({...newPlace, description: e.target.value})}
+                    rows="3"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Вместимость:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={newPlace.maxCapacity}
+                    onChange={(e) => setNewPlace({...newPlace, maxCapacity: parseInt(e.target.value)})}
+                    required
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="submit" className="btn btn-primary">Сохранить</button>
+                  <button type="button" className="btn" onClick={() => {
+                    setShowEditPlaceForm(false);
+                    setEditingPlace(null);
+                    setNewPlace({
+                      name: '',
+                      coordinates: { x: 300, y: 250 },
+                      description: '',
+                      maxCapacity: 2
+                    });
+                  }}>
+                    Отмена
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Таблица мест */}
           <table className="stats-table">
             <thead>
               <tr>
@@ -393,26 +580,51 @@ const ManagerPanel = () => {
                       background: 
                         place.status === 'free' ? '#4CAF50' :
                         place.status === 'occupied' ? '#f44336' : '#ff9800',
-                      color: 'white'
+                      color: 'white',
+                      fontSize: '12px'
                     }}>
                       {place.status === 'free' ? 'Свободно' :
                        place.status === 'occupied' ? 'Занято' : 'Ожидание'}
                     </span>
                   </td>
                   <td>
-                    {place.image ? (
-                      <span style={{ color: '#4CAF50', fontWeight: 'bold' }}>✓ Есть</span>
-                    ) : (
-                      <span style={{ color: '#999' }}>—</span>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      {place.image ? (
+                        <span style={{ color: '#4CAF50', fontWeight: 'bold' }}>✓</span>
+                      ) : (
+                        <span style={{ color: '#999' }}>—</span>
+                      )}
+                      <label 
+                        style={{ 
+                          cursor: uploadingImage ? 'not-allowed' : 'pointer',
+                          fontSize: '16px'
+                        }}
+                      >
+                        фото
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageUpload(e, place.id)}
+                          style={{ display: 'none' }}
+                          disabled={uploadingImage}
+                        />
+                      </label>
+                    </div>
                   </td>
                   <td>
+                    <button
+                      className="btn btn-warning"
+                      style={{ padding: '4px 8px', marginRight: '5px' }}
+                      onClick={() => handleEditPlace(place)}
+                    >
+                      редактировать
+                    </button>
                     <button
                       className="btn btn-danger"
                       style={{ padding: '4px 8px' }}
                       onClick={() => handleDeletePlace(place.id)}
                     >
-                      Удалить
+                      удалить
                     </button>
                   </td>
                 </tr>
