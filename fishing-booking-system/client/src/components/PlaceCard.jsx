@@ -235,7 +235,7 @@ const PlaceCard = ({ place, user, onClose, onBook, onRefresh }) => {
                       opacity: uploadingImage ? 0.7 : 1
                     }}
                   >
-                    {uploadingImage ? '⏳' : '📷'}
+                    {uploadingImage ? 'секунду...' : 'сменить фото'}
                     <input
                       type="file"
                       accept="image/*"
