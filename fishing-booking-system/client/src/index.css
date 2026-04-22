@@ -1,5 +1,5 @@
 /* Импорт шрифтов */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@300;400;500;600;700&display=swap');
 
 /* Сброс стилей */
 * {
@@ -9,7 +9,7 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Roboto Slab', serif;
   background: #0a0e12;
   min-height: 100vh;
   position: relative;
@@ -749,4 +749,19 @@ img {
   height: auto;
   max-width: 100%;
   max-height: 600px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Roboto Slab', serif;
+  font-weight: 500;
+}
+
+button, .btn {
+  font-family: 'Roboto Slab', serif;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+input, select, textarea {
+  font-family: 'Roboto Slab', serif;
 }
