@@ -83,7 +83,7 @@ const Profile = ({ user }) => {
 
   const getStatusText = (status) => {
     const statusMap = {
-      pending: 'Ожидает подтверждения',
+      pending: 'Ожидает',
       approved: 'Подтверждено',
       rejected: 'Отклонено',
       cancelled: 'Отменено'
@@ -93,12 +93,12 @@ const Profile = ({ user }) => {
 
   const getStatusColor = (status) => {
     const colorMap = {
-      pending: '#ff9800',
-      approved: '#4CAF50',
-      rejected: '#f44336',
-      cancelled: '#999'
+      pending: 'rgba(255, 193, 7, 0.9)',
+      approved: 'rgba(72, 199, 142, 0.9)',
+      rejected: 'rgba(220, 53, 69, 0.9)',
+      cancelled: 'rgba(255, 255, 255, 0.3)'
     };
-    return colorMap[status] || '#999';
+    return colorMap[status] || 'rgba(255, 255, 255, 0.3)';
   };
 
   if (loading) {
@@ -108,19 +108,26 @@ const Profile = ({ user }) => {
   return (
     <div>
       <div className="card">
-        <h2>👤 Профиль пользователя</h2>
+        <h2>Профиль пользователя</h2>
         
-        {message && <div className="success" style={{ 
-          padding: '10px', 
-          background: '#d4edda', 
-          borderRadius: '4px',
-          marginBottom: '15px'
-        }}>{message}</div>}
+        {message && (
+          <div style={{ 
+            padding: '14px 18px', 
+            background: 'rgba(72, 199, 142, 0.15)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '12px',
+            marginBottom: '20px',
+            border: '1px solid rgba(72, 199, 142, 0.3)',
+            color: '#ffffff'
+          }}>
+            {message}
+          </div>
+        )}
         
         {editing ? (
           <form onSubmit={handleUpdate} style={{ marginTop: '20px' }}>
             <div className="form-group">
-              <label>Имя пользователя:</label>
+              <label>Имя пользователя</label>
               <input
                 type="text"
                 value={formData.username}
@@ -129,7 +136,7 @@ const Profile = ({ user }) => {
               />
             </div>
             <div className="form-group">
-              <label>Email:</label>
+              <label>Email</label>
               <input
                 type="email"
                 value={formData.email}
@@ -137,7 +144,7 @@ const Profile = ({ user }) => {
                 required
               />
             </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '12px' }}>
               <button type="submit" className="btn btn-primary">Сохранить</button>
               <button type="button" className="btn" onClick={() => {
                 setEditing(false);
@@ -152,13 +159,13 @@ const Profile = ({ user }) => {
           </form>
         ) : (
           <div style={{ marginTop: '20px' }}>
-            <p><strong>Имя пользователя:</strong> {profile?.username}</p>
-            <p><strong>Email:</strong> {profile?.email}</p>
-            <p><strong>Роль:</strong> {
+            <p><strong>Имя пользователя</strong> {profile?.username}</p>
+            <p><strong>Email</strong> {profile?.email}</p>
+            <p><strong>Роль</strong> {
               profile?.role === 'admin' ? 'Администратор' :
               profile?.role === 'manager' ? 'Управляющий' : 'Пользователь'
             }</p>
-            <p><strong>Дата регистрации:</strong> {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('ru-RU') : 'Неизвестно'}</p>
+            <p><strong>Дата регистрации</strong> {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('ru-RU') : 'Неизвестно'}</p>
             <button className="btn btn-primary" onClick={() => setEditing(true)}>
               Редактировать профиль
             </button>
@@ -167,16 +174,16 @@ const Profile = ({ user }) => {
       </div>
 
       <div className="card">
-        <h3>📅 Мои бронирования</h3>
+        <h3>Мои бронирования</h3>
         {bookings.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
+          <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', padding: '40px 20px' }}>
             У вас пока нет бронирований
           </p>
         ) : (
           <table className="stats-table">
             <thead>
               <tr>
-                <th>ID места</th>
+                <th>Место</th>
                 <th>Начало</th>
                 <th>Окончание</th>
                 <th>Статус</th>
@@ -187,60 +194,62 @@ const Profile = ({ user }) => {
             <tbody>
               {bookings.map(booking => (
                 <tr key={booking.id}>
-                  <td>Место #{booking.placeId}</td>
+                  <td>№{booking.placeId}</td>
                   <td>{new Date(booking.startTime).toLocaleString('ru-RU')}</td>
                   <td>{new Date(booking.endTime).toLocaleString('ru-RU')}</td>
                   <td>
                     <span style={{
-                      padding: '4px 8px',
-                      borderRadius: '4px',
+                      padding: '6px 12px',
+                      borderRadius: '100px',
                       background: getStatusColor(booking.status),
-                      color: 'white'
+                      color: 'white',
+                      fontSize: '12px',
+                      fontWeight: '500'
                     }}>
                       {getStatusText(booking.status)}
                     </span>
                     {booking.cancelRequested && (
-                      <div style={{ fontSize: '12px', color: '#ff9800', marginTop: '5px' }}>
-                        Запрос на отмену отправлен
+                      <div style={{ fontSize: '11px', color: 'rgba(255,193,7,0.9)', marginTop: '6px' }}>
+                        Запрос на отмену
                       </div>
                     )}
                   </td>
                   <td>
-                    {booking.catchAmount > 0 ? `🐟 ${booking.catchAmount} кг` : '-'}
+                    {booking.catchAmount > 0 ? `${booking.catchAmount} кг` : '—'}
                   </td>
                   <td>
                     {booking.status === 'approved' && !booking.cancelRequested && (
                       <>
                         <button
                           className="btn btn-warning"
-                          style={{ padding: '4px 8px', marginRight: '5px', fontSize: '12px' }}
+                          style={{ padding: '6px 12px', marginRight: '8px', fontSize: '12px' }}
                           onClick={() => handleRequestCancel(booking.id)}
                         >
                           Запросить отмену
                         </button>
                         <button
                           className="btn btn-danger"
-                          style={{ padding: '4px 8px', fontSize: '12px' }}
+                          style={{ padding: '6px 12px', fontSize: '12px' }}
                           onClick={() => handleCancelBooking(booking.id)}
                         >
-                          Отменить сразу
+                          Отменить
                         </button>
                       </>
                     )}
                     {booking.status === 'pending' && (
                       <button
                         className="btn btn-danger"
-                        style={{ padding: '4px 8px', fontSize: '12px' }}
+                        style={{ padding: '6px 12px', fontSize: '12px' }}
                         onClick={() => handleCancelBooking(booking.id)}
                       >
                         Отменить заявку
                       </button>
                     )}
                     {booking.status === 'cancelled' && (
-                      <span style={{ color: '#999' }}>Отменено</span>
+                      <span style={{ color: 'rgba(255,255,255,0.4)' }}>Отменено</span>
                     )}
                     {booking.status === 'rejected' && (
-                      <span style={{ color: '#f44336' }}>Отклонено</span>
+                      <span style={{ color: 'rgba(220,53,69,0.8)' }}>Отклонено</span>
                     )}
                   </td>
                 </tr>
@@ -251,30 +260,60 @@ const Profile = ({ user }) => {
       </div>
 
       <div className="card">
-        <h3>📊 Моя статистика</h3>
+        <h3>Статистика</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
           <div style={{ 
-            padding: '20px', 
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            borderRadius: '8px',
+            padding: '28px 20px', 
+            background: 'rgba(15, 25, 35, 0.4)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
             color: 'white',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '14px', opacity: 0.9 }}>Всего бронирований</div>
-            <div style={{ fontSize: '32px', fontWeight: 'bold', marginTop: '10px' }}>
+            <div style={{ 
+              fontSize: '13px', 
+              opacity: 0.7, 
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              marginBottom: '12px'
+            }}>
+              Всего бронирований
+            </div>
+            <div style={{ 
+              fontSize: '42px', 
+              fontWeight: '300', 
+              letterSpacing: '-0.02em'
+            }}>
               {bookings.length}
             </div>
           </div>
           
           <div style={{ 
-            padding: '20px', 
-            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-            borderRadius: '8px',
+            padding: '28px 20px', 
+            background: 'rgba(15, 25, 35, 0.4)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
             color: 'white',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '14px', opacity: 0.9 }}>Активных броней</div>
-            <div style={{ fontSize: '32px', fontWeight: 'bold', marginTop: '10px' }}>
+            <div style={{ 
+              fontSize: '13px', 
+              opacity: 0.7, 
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              marginBottom: '12px'
+            }}>
+              Активных броней
+            </div>
+            <div style={{ 
+              fontSize: '42px', 
+              fontWeight: '300', 
+              letterSpacing: '-0.02em'
+            }}>
               {bookings.filter(b => b.status === 'approved').length}
             </div>
           </div>

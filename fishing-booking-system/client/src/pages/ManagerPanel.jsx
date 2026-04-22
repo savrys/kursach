@@ -272,7 +272,7 @@ const ManagerPanel = () => {
 
   return (
     <div className="card">
-      <h2>📋 Панель управления</h2>
+      <h2> Панель управления</h2>
       
       <div style={{ marginBottom: '20px', marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button 
@@ -646,7 +646,7 @@ const ManagerPanel = () => {
               borderRadius: '12px',
               color: '#666'
             }}>
-              <p style={{ fontSize: '18px', marginBottom: '10px' }}>🎣 Нет активных пользователей</p>
+              <p style={{ fontSize: '18px', marginBottom: '10px' }}> Нет активных пользователей</p>
               <p>В данный момент никто не рыбачит. Дождитесь начала бронирования.</p>
             </div>
           ) : (
@@ -732,7 +732,7 @@ const ManagerPanel = () => {
                   display: 'block',
                   fontSize: '13px'
                 }}>
-                  💡 Можно вводить дробные числа с точностью до 0.1 кг
+                   Можно вводить дробные числа с точностью до 0.1 кг
                 </small>
               </div>
               
@@ -754,7 +754,7 @@ const ManagerPanel = () => {
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '12px' }}
               >
-                🐟 Добавить улов
+                 Добавить улов
               </button>
             </form>
           )}

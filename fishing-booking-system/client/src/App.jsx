@@ -38,6 +38,18 @@ function App() {
   return (
     <Router>
       <div className="App">
+        {/* Видеофон */}
+        <video 
+          className="video-background"
+          autoPlay 
+          muted 
+          loop 
+          playsInline
+        >
+          <source src="/fog.mp4" type="video/mp4" />
+        </video>
+        <div className="video-overlay"></div>
+        
         <Navigation user={user} setUser={setUser} />
         <div className="container">
           <Routes>

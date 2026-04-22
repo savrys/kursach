@@ -1,0 +1,21 @@
+{
+  "name": "Туманное утро · Рыболовная база",
+  "short_name": "Туманное утро",
+  "description": "Бронирование мест для рыбалки онлайн",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0a0e12",
+  "background_color": "#0a0e12",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

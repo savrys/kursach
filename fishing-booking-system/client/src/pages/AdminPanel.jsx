@@ -56,7 +56,7 @@ const AdminPanel = () => {
 
   return (
     <div className="card">
-      <h2>👑 Панель администратора</h2>
+      <h2> Панель администратора</h2>
       
       {error && <div className="error">{error}</div>}
       

@@ -50,7 +50,6 @@ const Map = ({ user }) => {
     loadPlaces();
   };
 
-  // Функция сжатия изображения
   // Функция сжатия изображения (без обрезки, сохраняет пропорции)
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
@@ -61,11 +60,11 @@ const Map = ({ user }) => {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
         
-        // Сохраняем оригинальные размеры
+          // Сохраняем оригинальные размеры
           let width = img.width;
           let height = img.height;
         
-        // Максимальный размер только если изображение ОЧЕНЬ большое (> 2000px)
+          // Максимальный размер только если изображение ОЧЕНЬ большое (> 2000px)
           const maxDimension = 2000;
         
           if (width > maxDimension || height > maxDimension) {
@@ -81,10 +80,10 @@ const Map = ({ user }) => {
           canvas.width = width;
           canvas.height = height;
         
-        // Рисуем изображение
+          // Рисуем изображение
           ctx.drawImage(img, 0, 0, width, height);
         
-        // Сжимаем качество до 70% для JPEG
+          // Сжимаем качество до 70% для JPEG
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
           resolve(compressedDataUrl);
         };
@@ -151,7 +150,7 @@ const Map = ({ user }) => {
   return (
     <div>
       {(user.role === 'manager' || user.role === 'admin') && (
-        <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
           <label 
             className="btn btn-primary" 
             style={{ 
@@ -159,7 +158,7 @@ const Map = ({ user }) => {
               opacity: uploading ? 0.7 : 1
             }}
           >
-            {uploading ? '⏳ Загрузка...' : '📸 Загрузить карту'}
+            {uploading ? 'Загрузка...' : ' Загрузить карту'}
             <input
               type="file"
               accept="image/*"
@@ -170,33 +169,23 @@ const Map = ({ user }) => {
           </label>
           {mapImage && (
             <button 
-              className="btn btn-warning" 
+              className="btn" 
               onClick={handleResetMap}
             >
-               Сбросить на стандартную
+              Сбросить
             </button>
           )}
-          <span style={{ fontSize: '13px', color: '#666', marginLeft: '10px' }}>
-            {mapImage ? '✓ Пользовательская карта активна' : '○ Используется стандартная карта'}
+          <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginLeft: '8px' }}>
+            {mapImage ? '✓ Пользовательская карта' : '○ Стандартная карта'}
           </span>
         </div>
       )}
 
-      <div 
-        className="map-container" 
-        style={{ 
-          position: 'relative',
-          backgroundImage: mapImage ? `url(${mapImage})` : 'none',
-          backgroundSize: 'contain',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundColor: mapImage ? '#1a2a3a' : '#e8f4f8'
-        }}
-      >
+      <div className="map-container">
         {!mapImage ? (
-          <svg className="map-svg" viewBox="0 0 600 500">
-            <ellipse cx="300" cy="250" rx="250" ry="180" fill="#4A90E2" opacity="0.6" />
-            <ellipse cx="300" cy="250" rx="230" ry="160" fill="#5BA3E6" opacity="0.4" />
+          <svg className="map-svg" viewBox="0 0 600 500" width="100%" height="100%">
+            <ellipse cx="300" cy="250" rx="250" ry="180" fill="rgba(74, 144, 226, 0.15)" />
+            <ellipse cx="300" cy="250" rx="230" ry="160" fill="rgba(91, 163, 230, 0.1)" />
             
             {places.map(place => (
               <g key={place.id} onClick={() => handlePlaceClick(place)}>
@@ -214,9 +203,9 @@ const Map = ({ user }) => {
                   y={place.coordinates.y}
                   textAnchor="middle"
                   dy=".3em"
-                  fill="white"
+                  fill="rgba(255, 255, 255, 0.9)"
                   fontSize="12"
-                  fontWeight="bold"
+                  fontWeight="500"
                 >
                   {place.name}
                 </text>
@@ -227,9 +216,9 @@ const Map = ({ user }) => {
                     textAnchor="middle"
                     className="catch-amount-text"
                     fontSize="12"
-                    fontWeight="bold"
+                    fontWeight="500"
                   >
-                    🐟 {place.bookingInfo.catchAmount} кг
+                     {place.bookingInfo.catchAmount} кг
                   </text>
                 )}
                 {place.status === 'occupied' && place.bookingInfo && (
@@ -237,18 +226,40 @@ const Map = ({ user }) => {
                     x={place.coordinates.x}
                     y={place.coordinates.y - 30}
                     textAnchor="middle"
-                    fill="#333"
+                    fill="rgba(255, 255, 255, 0.8)"
                     fontSize="11"
-                    fontWeight="bold"
+                    fontWeight="400"
                   >
-                    ⏱️ {Math.ceil(place.bookingInfo.timeRemaining / 3600000)}ч
+                    ⏱ {Math.ceil(place.bookingInfo.timeRemaining / 3600000)}ч
                   </text>
                 )}
               </g>
             ))}
           </svg>
         ) : (
-          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          <div style={{ 
+            position: 'relative', 
+            width: '100%', 
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <img 
+              src={mapImage} 
+              alt="Карта рыболовной базы"
+              width="600"
+              height="500"
+              loading="lazy"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                width: 'auto',
+                height: 'auto',
+                objectFit: 'contain',
+                aspectRatio: '600 / 500'
+              }}
+            />
             {places.map(place => (
               <div
                 key={place.id}
@@ -270,18 +281,19 @@ const Map = ({ user }) => {
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: place.status === 'free' ? '#4CAF50' :
-                               place.status === 'occupied' ? '#f44336' : '#ff9800',
+                    background: place.status === 'free' ? 'rgba(72, 199, 142, 0.8)' :
+                               place.status === 'occupied' ? 'rgba(220, 53, 69, 0.8)' : 'rgba(255, 193, 7, 0.8)',
+                    backdropFilter: 'blur(8px)',
                     color: 'white',
-                    fontWeight: 'bold',
+                    fontWeight: '500',
                     fontSize: '12px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                    border: '2px solid white'
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255,255,255,0.2)'
                   }}
                 >
                   <div>{place.name}</div>
                   {place.status === 'occupied' && place.bookingInfo && (
-                    <div style={{ fontSize: '10px' }}>
+                    <div style={{ fontSize: '10px', opacity: 0.9 }}>
                       {Math.ceil(place.bookingInfo.timeRemaining / 3600000)}ч
                     </div>
                   )}
@@ -294,18 +306,19 @@ const Map = ({ user }) => {
                       top: '50px',
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      background: '#1a2a3a',
+                      background: 'rgba(15, 25, 35, 0.7)',
+                      backdropFilter: 'blur(8px)',
                       color: '#ffffff',
-                      padding: '4px 10px',
+                      padding: '4px 12px',
                       borderRadius: '20px',
                       fontSize: '12px',
-                      fontWeight: 'bold',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                      fontWeight: '500',
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
                       whiteSpace: 'nowrap',
-                      border: '1px solid #4A90E2'
+                      border: '1px solid rgba(255,255,255,0.15)'
                     }}
                   >
-                    🐟 {place.bookingInfo.catchAmount} кг
+                     {place.bookingInfo.catchAmount} кг
                   </div>
                 )}
               </div>

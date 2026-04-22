@@ -250,7 +250,7 @@ const PlaceCard = ({ place, user, onClose, onBook, onRefresh }) => {
                       style={{ padding: '6px 12px', fontSize: '12px' }}
                       onClick={handleDeleteImage}
                     >
-                      🗑️
+                      удалить
                     </button>
                   )}
                 </div>
@@ -261,8 +261,8 @@ const PlaceCard = ({ place, user, onClose, onBook, onRefresh }) => {
               <p><strong>Описание:</strong> {place.description || 'Нет описания'}</p>
               <p><strong>Вместимость:</strong> {place.maxCapacity} человек</p>
               <p><strong>Статус:</strong> {
-                place.status === 'free' ? '🟢 Свободно' :
-                place.status === 'occupied' ? '🔴 Занято' : '🟡 Ожидает подтверждения'
+                place.status === 'free' ? ' Свободно' :
+                place.status === 'occupied' ? ' Занято' : ' Ожидает подтверждения'
               }</p>
               
               {place.bookingInfo && (
@@ -274,7 +274,7 @@ const PlaceCard = ({ place, user, onClose, onBook, onRefresh }) => {
                     </span>
                   </p>
                   {place.bookingInfo.catchAmount > 0 && (
-                    <p><strong>Улов:</strong> 🐟 {place.bookingInfo.catchAmount} кг</p>
+                    <p><strong>Улов:</strong>  {place.bookingInfo.catchAmount} кг</p>
                   )}
                 </>
               )}

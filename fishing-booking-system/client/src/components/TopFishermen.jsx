@@ -40,7 +40,7 @@ const TopFishermen = ({ user }) => {
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>🏆 Топ рыбаков</h2>
+        <h2> Топ рыбаков</h2>
         {(user.role === 'manager' || user.role === 'admin') && (
           <button className="btn btn-warning" onClick={handleClearStats}>
             Очистить статистику
@@ -65,9 +65,9 @@ const TopFishermen = ({ user }) => {
             {fishermen.map((fisherman, index) => (
               <tr key={fisherman.userId}>
                 <td>
-                  {index === 0 && '🥇 '}
-                  {index === 1 && '🥈 '}
-                  {index === 2 && '🥉 '}
+                  {index === 0 && '1. '}
+                  {index === 1 && '2. '}
+                  {index === 2 && '3. '}
                   {index + 1}
                 </td>
                 <td>{fisherman.username}</td>

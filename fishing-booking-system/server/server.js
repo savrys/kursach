@@ -18,7 +18,48 @@ const DB_PATH = path.join(__dirname, 'data', 'database.json');
 if (!fs.existsSync(DB_PATH)) {
     const initialData = {
         users: [],
-        places: [],
+        places: [
+            {
+                id: "1",
+                name: "Место #1",
+                coordinates: { x: 100, y: 100 },
+                description: "Хорошее место для ловли карпа",
+                maxCapacity: 3,
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: "2",
+                name: "Место #2",
+                coordinates: { x: 250, y: 150 },
+                description: "Глубокое место, много сома",
+                maxCapacity: 2,
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: "3",
+                name: "Место #3",
+                coordinates: { x: 400, y: 200 },
+                description: "Мелководье, идеально для начинающих",
+                maxCapacity: 4,
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: "4",
+                name: "Место #4",
+                coordinates: { x: 150, y: 300 },
+                description: "Рядом с камышами, много щуки",
+                maxCapacity: 2,
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: "5",
+                name: "Место #5",
+                coordinates: { x: 350, y: 350 },
+                description: "VIP место с навесом",
+                maxCapacity: 2,
+                createdAt: new Date().toISOString()
+            }
+        ],
         bookings: [],
         catches: [],
         chats: [],
@@ -26,6 +67,9 @@ if (!fs.existsSync(DB_PATH)) {
         stats: {
             fishing: [],
             visits: []
+        },
+        settings: {
+            mapImage: null
         }
     };
     fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
@@ -67,6 +111,7 @@ const managerRoutes = require('./routes/manager');
 const userRoutes = require('./routes/user');
 const statsRoutes = require('./routes/stats');
 const settingsRoutes = require('./routes/settings');
+
 // Использование маршрутов
 app.use('/api/auth', authRoutes);
 app.use('/api/bookings', bookingRoutes);
@@ -77,10 +122,16 @@ app.use('/api/manager', managerRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/settings', settingsRoutes);
+
 // Создаем админа при первом запуске
 const initializeAdmin = () => {
     const bcrypt = require('bcryptjs');
     const db = readDB();
+    
+    if (!db) {
+        console.error('Failed to read database');
+        return;
+    }
     
     const adminExists = db.users.some(user => user.role === 'admin');
     

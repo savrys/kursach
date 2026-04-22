@@ -112,20 +112,20 @@ const Chat = ({ user, onMessagesRead }) => {
 
   return (
     <div className="card">
-      <h2>💬 Чат с администрацией</h2>
+      <h2> Чат с администрацией</h2>
       
       <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
         {/* Список чатов */}
         <div className="chat-list">
           {user.role === 'user' && chats.length === 0 && (
             <button className="create-chat-btn" onClick={createChat}>
-              ✨ Начать чат
+               Начать чат
             </button>
           )}
           
           {user.role === 'user' && chats.length > 0 && (
             <button className="create-chat-btn" onClick={createChat} style={{ marginBottom: '15px' }}>
-              ✨ Новый чат
+               Новый чат
             </button>
           )}
           
@@ -168,7 +168,7 @@ const Chat = ({ user, onMessagesRead }) => {
               <div className="chat-messages">
                 {messages.length === 0 ? (
                   <div className="chat-empty">
-                    <div className="chat-empty-icon">💬</div>
+                    <div className="chat-empty-icon"> </div>
                     <p>Нет сообщений</p>
                     <p style={{ fontSize: '14px', marginTop: '10px' }}>Напишите первое сообщение!</p>
                   </div>
@@ -210,7 +210,7 @@ const Chat = ({ user, onMessagesRead }) => {
             </div>
           ) : (
             <div className="chat-empty">
-              <div className="chat-empty-icon">👥</div>
+              <div className="chat-empty-icon"> </div>
               <p>Выберите чат</p>
               <p style={{ fontSize: '14px', marginTop: '10px' }}>или создайте новый</p>
             </div>

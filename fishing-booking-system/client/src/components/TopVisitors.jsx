@@ -40,7 +40,7 @@ const TopVisitors = ({ user }) => {
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>⏰ Топ по времени посещения</h2>
+        <h2> Топ по времени посещения</h2>
         {(user.role === 'manager' || user.role === 'admin') && (
           <button className="btn btn-warning" onClick={handleClearStats}>
             Очистить статистику
@@ -65,9 +65,9 @@ const TopVisitors = ({ user }) => {
             {visitors.map((visitor, index) => (
               <tr key={visitor.userId}>
                 <td>
-                  {index === 0 && '🥇 '}
-                  {index === 1 && '🥈 '}
-                  {index === 2 && '🥉 '}
+                  {index === 0 && '1. '}
+                  {index === 1 && '2. '}
+                  {index === 2 && '3. '}
                   {index + 1}
                 </td>
                 <td>{visitor.username}</td>
