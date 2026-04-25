@@ -5,10 +5,18 @@ const authMiddleware = require('../middleware/auth');
 
 router.use(authMiddleware);
 
+// Коллекция чатов
 router.get('/', chatController.getUserChats);
 router.post('/', chatController.createChat);
-router.get('/:chatId/messages', chatController.getMessages);
-router.post('/:chatId/messages', chatController.sendMessage);
-router.delete('/:chatId', chatController.deleteChat);
-router.put('/messages/:messageId/read', chatController.markAsRead);
+
+// Конкретный чат
+router.delete('/:id', chatController.deleteChat);
+
+// Сообщения в чате
+router.get('/:id/messages', chatController.getMessages);
+router.post('/:id/messages', chatController.sendMessage);
+
+// Отметка о прочтении
+router.put('/messages/:id/read', chatController.markAsRead);
+
 module.exports = router;

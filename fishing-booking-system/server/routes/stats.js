@@ -7,6 +7,6 @@ router.use(authMiddleware);
 
 router.get('/fishing/top', statsController.getTopFishermen);
 router.get('/visits/top', statsController.getTopVisitors);
-router.post('/visits/update', statsController.updateVisitTime);
+router.post('/visits', statsController.updateVisitTime);
 
 module.exports = router;
