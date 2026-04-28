@@ -75,9 +75,7 @@ const Login = ({ setUser }) => {
           {loading ? 'Вход...' : 'Войти'}
         </button>
         
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <Link to="/register">Нет аккаунта? Зарегистрироваться</Link>
-        </div>
+        
         
         <div style={{ marginTop: '20px', padding: '10px', background: '#f0f0f0', borderRadius: '4px' }}>
           <p style={{ margin: '5px 0' }}><strong>Тестовые аккаунты:</strong></p>
