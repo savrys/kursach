@@ -1,7 +1,7 @@
 {
   "name": "fishing-booking-server",
   "version": "1.0.0",
-  "description": "Backend for fishing booking system",
+  "description": "RESTful API for fishing booking system",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

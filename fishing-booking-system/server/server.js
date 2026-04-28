@@ -11,6 +11,42 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Middleware для кеширования (RESTful)
+app.use((req, res, next) => {
+  if (req.method === 'GET') {
+    res.set('Cache-Control', 'public, max-age=5');
+  } else {
+    res.set('Cache-Control', 'no-store');
+  }
+  next();
+});
+
+// Middleware для аудита (журнал действий)
+const auditLog = (req, res, next) => {
+    const originalSend = res.send;
+    
+    res.send = function(data) {
+        const logEntry = {
+            timestamp: new Date().toISOString(),
+            method: req.method,
+            url: req.originalUrl,
+            user: req.user?.username || 'anonymous',
+            role: req.user?.role || 'guest',
+            status: res.statusCode,
+            ip: req.ip
+        };
+        
+        const logFile = path.join(__dirname, 'data', 'audit.log');
+        fs.appendFileSync(logFile, JSON.stringify(logEntry) + '\n');
+        
+        originalSend.call(this, data);
+    };
+    
+    next();
+};
+
+app.use(auditLog);
+
 // Путь к файлу базы данных
 const DB_PATH = path.join(__dirname, 'data', 'database.json');
 
@@ -101,6 +137,35 @@ const writeDB = (data) => {
 app.locals.readDB = readDB;
 app.locals.writeDB = writeDB;
 
+// Автоматическое резервное копирование каждые 30 минут
+setInterval(() => {
+    const backupDir = path.join(__dirname, 'data', 'backups');
+    if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+    }
+    
+    const backupPath = path.join(backupDir, `backup-${Date.now()}.json`);
+    try {
+        if (fs.existsSync(DB_PATH)) {
+            fs.copyFileSync(DB_PATH, backupPath);
+            console.log('Backup created:', backupPath);
+            
+            // Храним только последние 5 бекапов
+            const backups = fs.readdirSync(backupDir)
+                .filter(f => f.startsWith('backup-'))
+                .sort()
+                .reverse();
+            
+            backups.slice(5).forEach(f => {
+                fs.unlinkSync(path.join(backupDir, f));
+                console.log('Old backup deleted:', f);
+            });
+        }
+    } catch (error) {
+        console.error('Backup error:', error);
+    }
+}, 30 * 60 * 1000);
+
 // Импорт маршрутов
 const authRoutes = require('./routes/auth');
 const bookingRoutes = require('./routes/bookings');
@@ -122,6 +187,23 @@ app.use('/api/manager', managerRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/settings', settingsRoutes);
+
+// Обработка 404
+app.use((req, res) => {
+    res.status(404).json({ 
+        message: 'Ресурс не найден',
+        path: req.originalUrl 
+    });
+});
+
+// Глобальный обработчик ошибок
+app.use((err, req, res, next) => {
+    console.error('Server error:', err);
+    res.status(500).json({ 
+        message: 'Внутренняя ошибка сервера',
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Попробуйте позже'
+    });
+});
 
 // Создаем админа при первом запуске
 const initializeAdmin = () => {
@@ -155,5 +237,8 @@ const initializeAdmin = () => {
 // Запуск сервера
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`Cache: enabled (GET: 5s, POST/PUT/DELETE: no-store)`);
+    console.log(`Audit: enabled (./data/audit.log)`);
+    console.log(`Backups: enabled (./data/backups/, every 30 min, keep 5)`);
     initializeAdmin();
-}); 
+});
