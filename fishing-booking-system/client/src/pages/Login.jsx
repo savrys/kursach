@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { authService } from '../services/auth';
 
 const Login = ({ setUser }) => {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -27,9 +26,8 @@ const Login = ({ setUser }) => {
       const response = await authService.login(formData);
       localStorage.setItem('token', response.token);
       setUser(response.user);
-      navigate('/');
     } catch (error) {
-      setError(error.response?.data?.message || 'Ошибка входа');
+      setError(error.response?.data?.message || 'Неверный email или пароль');
     } finally {
       setLoading(false);
     }
@@ -41,7 +39,7 @@ const Login = ({ setUser }) => {
       
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label>Email:</label>
+          <label>Email</label>
           <input
             type="email"
             name="email"
@@ -53,7 +51,7 @@ const Login = ({ setUser }) => {
         </div>
         
         <div className="form-group">
-          <label>Пароль:</label>
+          <label>Пароль</label>
           <input
             type="password"
             name="password"
@@ -75,11 +73,10 @@ const Login = ({ setUser }) => {
           {loading ? 'Вход...' : 'Войти'}
         </button>
         
-        
-        
-        <div style={{ marginTop: '20px', padding: '10px', background: '#f0f0f0', borderRadius: '4px' }}>
-          <p style={{ margin: '5px 0' }}><strong>Тестовые аккаунты:</strong></p>
-          <p style={{ margin: '5px 0', fontSize: '14px' }}>Админ: admin@fishing.com / admin123</p>
+        <div style={{ marginTop: '20px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
+          <p style={{ margin: '5px 0', color: 'rgba(255,255,255,0.7)', fontSize: '14px' }}>
+            Тестовый аккаунт: admin@fishing.com / admin123
+          </p>
         </div>
       </form>
     </div>

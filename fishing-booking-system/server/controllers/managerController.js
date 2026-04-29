@@ -1,433 +1,397 @@
 exports.getPendingBookings = async (req, res) => {
     try {
-        const db = req.app.locals.readDB();
-        const pendingBookings = db.bookings.filter(b => b.status === 'pending');
+        const db = req.app.locals.db;
         
-        const bookingsWithDetails = pendingBookings.map(booking => {
-            const user = db.users.find(u => u.id === booking.userId);
-            const place = db.places.find(p => p.id === booking.placeId);
-            
-            return {
-                ...booking,
-                username: user?.username || 'Unknown',
-                placeName: place?.name || 'Unknown'
-            };
-        });
+        const result = await db.query(
+            `SELECT b.*, u.username, p.name as place_name 
+             FROM bookings b 
+             JOIN users u ON b.user_id = u.id 
+             JOIN places p ON b.place_id = p.id 
+             WHERE b.status = 'pending' 
+             ORDER BY b.created_at DESC`
+        );
         
-        res.json(bookingsWithDetails);
+        // Преобразуем поля для фронтенда
+        const bookings = result.rows.map(b => ({
+            id: b.id,
+            userId: b.user_id,
+            placeId: b.place_id,
+            startTime: b.start_time,
+            endTime: b.end_time,
+            status: b.status,
+            catchAmount: b.catch_amount,
+            extendedCount: b.extended_count,
+            cancelRequested: b.cancel_requested,
+            createdAt: b.created_at,
+            username: b.username,
+            placeName: b.place_name
+        }));
+        
+        res.json(bookings);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Get pending bookings error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
-// НОВАЯ ФУНКЦИЯ - получить активных пользователей
 exports.getActiveUsers = async (req, res) => {
     try {
-        const db = req.app.locals.readDB();
-        const now = new Date();
+        const db = req.app.locals.db;
+        const now = new Date().toISOString();
         
-        // Находим активные бронирования
-        const activeBookings = db.bookings.filter(b => 
-            b.status === 'approved' &&
-            new Date(b.startTime) <= now &&
-            new Date(b.endTime) >= now
+        const result = await db.query(
+            `SELECT DISTINCT u.id, u.username, u.email, u.role 
+             FROM users u 
+             JOIN bookings b ON u.id = b.user_id 
+             WHERE b.status = 'approved' 
+             AND b.start_time <= $1 
+             AND b.end_time >= $1`,
+            [now]
         );
         
-        // Получаем уникальных пользователей из активных бронирований
-        const activeUserIds = [...new Set(activeBookings.map(b => b.userId))];
-        const activeUsers = db.users.filter(u => activeUserIds.includes(u.id));
-        
-        // Возвращаем только нужные поля
-        const usersData = activeUsers.map(u => ({
-            id: u.id,
-            username: u.username,
-            email: u.email,
-            role: u.role
-        }));
-        
-        res.json(usersData);
+        res.json(result.rows);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Get active users error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.approveBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const booking = db.bookings.find(b => b.id === id);
-        if (!booking) {
-            return res.status(404).json({ message: 'Booking not found' });
+        const bookingResult = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        
+        if (bookingResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Бронирование не найдено' });
         }
-
-        // Проверяем, нет ли активных бронирований на этом месте
-        const conflictingBooking = db.bookings.find(b => 
-            b.placeId === booking.placeId && 
-            b.status === 'approved' &&
-            b.id !== id &&
-            ((new Date(booking.startTime) >= new Date(b.startTime) && new Date(booking.startTime) < new Date(b.endTime)) ||
-             (new Date(booking.endTime) > new Date(b.startTime) && new Date(booking.endTime) <= new Date(b.endTime)) ||
-             (new Date(booking.startTime) <= new Date(b.startTime) && new Date(booking.endTime) >= new Date(b.endTime)))
+        
+        const booking = bookingResult.rows[0];
+        
+        // Проверяем конфликты
+        const conflictResult = await db.query(
+            `SELECT * FROM bookings 
+             WHERE place_id = $1 
+             AND status = 'approved' 
+             AND id != $2
+             AND (
+                 ($3 >= start_time AND $3 < end_time) OR
+                 ($4 > start_time AND $4 <= end_time) OR
+                 ($3 <= start_time AND $4 >= end_time)
+             )`,
+            [booking.place_id, id, booking.start_time, booking.end_time]
         );
-
-        if (conflictingBooking) {
-            return res.status(400).json({ 
-                message: 'Место уже забронировано на это время' 
-            });
-        }
-
-        booking.status = 'approved';
-        booking.approvedAt = new Date().toISOString();
-        booking.approvedBy = req.user.id;
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error approving booking' });
+        if (conflictResult.rows.length > 0) {
+            return res.status(400).json({ message: 'Место уже забронировано на это время' });
         }
-
+        
+        await db.query(
+            `UPDATE bookings SET status = 'approved', approved_at = NOW(), approved_by = $1 WHERE id = $2`,
+            [req.user.id, id]
+        );
+        
+        const updated = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        
         res.json({ 
-            message: 'Booking approved successfully',
-            booking: booking
+            message: 'Бронирование подтверждено',
+            booking: updated.rows[0]
         });
     } catch (error) {
         console.error('Approve booking error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.rejectBooking = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const booking = db.bookings.find(b => b.id === id);
-        if (!booking) {
-            return res.status(404).json({ message: 'Booking not found' });
+        const result = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Бронирование не найдено' });
         }
-
-        booking.status = 'rejected';
-        booking.rejectedAt = new Date().toISOString();
-        booking.rejectedBy = req.user.id;
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error rejecting booking' });
-        }
-
-        res.json({ message: 'Booking rejected successfully' });
+        await db.query(
+            `UPDATE bookings SET status = 'rejected', rejected_at = NOW(), rejected_by = $1 WHERE id = $2`,
+            [req.user.id, id]
+        );
+        
+        res.json({ message: 'Бронирование отклонено' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Reject booking error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
-// Одобрить запрос на отмену
 exports.approveCancelRequest = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const booking = db.bookings.find(b => b.id === id);
-        if (!booking) {
-            return res.status(404).json({ message: 'Booking not found' });
+        const result = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Бронирование не найдено' });
         }
-
-        booking.status = 'cancelled';
-        booking.cancelledAt = new Date().toISOString();
-        booking.cancelledBy = req.user.id;
-        booking.cancelRequested = false;
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error cancelling booking' });
-        }
-
-        res.json({ message: 'Booking cancelled successfully' });
+        await db.query(
+            `UPDATE bookings SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $1, cancel_requested = false WHERE id = $2`,
+            [req.user.id, id]
+        );
+        
+        res.json({ message: 'Заявка на отмену одобрена' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Approve cancel error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
-// Отклонить запрос на отмену
 exports.rejectCancelRequest = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const booking = db.bookings.find(b => b.id === id);
-        if (!booking) {
-            return res.status(404).json({ message: 'Booking not found' });
+        const result = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Бронирование не найдено' });
         }
-
-        booking.cancelRequested = false;
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error rejecting cancel request' });
-        }
-
-        res.json({ message: 'Cancel request rejected' });
+        await db.query(
+            'UPDATE bookings SET cancel_requested = false WHERE id = $1',
+            [id]
+        );
+        
+        res.json({ message: 'Заявка на отмену отклонена' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Reject cancel error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.createPlace = async (req, res) => {
     try {
         const { name, coordinates, description, maxCapacity } = req.body;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const newPlace = {
-            id: Date.now().toString(),
-            name,
-            coordinates,
-            description,
-            maxCapacity,
-            createdAt: new Date().toISOString()
-        };
-
-        db.places.push(newPlace);
+        const id = Date.now().toString();
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error creating place' });
-        }
-
-        res.status(201).json(newPlace);
+        await db.query(
+            `INSERT INTO places (id, name, coordinates_x, coordinates_y, description, max_capacity) 
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [id, name, coordinates.x, coordinates.y, description || '', maxCapacity || 2]
+        );
+        
+        const newPlace = await db.query('SELECT * FROM places WHERE id = $1', [id]);
+        
+        res.status(201).json(newPlace.rows[0]);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Create place error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.updatePlace = async (req, res) => {
     try {
         const { id } = req.params;
-        const updates = req.body;
-        const db = req.app.locals.readDB();
+        const { name, coordinates, description, maxCapacity } = req.body;
+        const db = req.app.locals.db;
         
-        const place = db.places.find(p => p.id === id);
-        if (!place) {
-            return res.status(404).json({ message: 'Place not found' });
+        const result = await db.query('SELECT * FROM places WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Место не найдено' });
         }
-
-        Object.assign(place, updates);
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error updating place' });
-        }
-
-        res.json(place);
+        await db.query(
+            `UPDATE places SET 
+             name = COALESCE($1, name),
+             coordinates_x = COALESCE($2, coordinates_x),
+             coordinates_y = COALESCE($3, coordinates_y),
+             description = COALESCE($4, description),
+             max_capacity = COALESCE($5, max_capacity)
+             WHERE id = $6`,
+            [name, coordinates?.x, coordinates?.y, description, maxCapacity, id]
+        );
+        
+        const updated = await db.query('SELECT * FROM places WHERE id = $1', [id]);
+        res.json(updated.rows[0]);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Update place error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.deletePlace = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const placeIndex = db.places.findIndex(p => p.id === id);
-        if (placeIndex === -1) {
-            return res.status(404).json({ message: 'Place not found' });
+        const result = await db.query('SELECT * FROM places WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Место не найдено' });
         }
-
+        
         // Проверяем активные бронирования
-        const activeBookings = db.bookings.filter(b => 
-            b.placeId === id && b.status === 'approved'
+        const activeBookings = await db.query(
+            "SELECT * FROM bookings WHERE place_id = $1 AND status = 'approved'",
+            [id]
         );
         
-        if (activeBookings.length > 0) {
-            return res.status(400).json({ message: 'Cannot delete place with active bookings' });
+        if (activeBookings.rows.length > 0) {
+            return res.status(400).json({ message: 'Нельзя удалить место с активными бронированиями' });
         }
-
-        db.places.splice(placeIndex, 1);
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error deleting place' });
-        }
-
-        res.json({ message: 'Place deleted successfully' });
+        await db.query('DELETE FROM places WHERE id = $1', [id]);
+        
+        res.json({ message: 'Место удалено' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Delete place error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.addCatch = async (req, res) => {
     try {
         const { userId, bookingId, amount } = req.body;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        // Преобразуем amount в число с плавающей точкой
         const catchAmount = parseFloat(amount);
         
         if (isNaN(catchAmount) || catchAmount <= 0) {
-            return res.status(400).json({ message: 'Invalid catch amount' });
+            return res.status(400).json({ message: 'Некорректное количество улова' });
         }
         
-        const booking = db.bookings.find(b => b.id === bookingId);
-        if (!booking) {
-            return res.status(404).json({ message: 'Booking not found' });
+        const bookingResult = await db.query('SELECT * FROM bookings WHERE id = $1', [bookingId]);
+        if (bookingResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Бронирование не найдено' });
         }
-
-        // Обновляем улов в бронировании (округляем до 1 знака)
-        booking.catchAmount = Math.round(((booking.catchAmount || 0) + catchAmount) * 10) / 10;
         
-        // Обновляем статистику рыбалки
-        const existingStat = db.stats.fishing.find(s => s.userId === userId);
-        if (existingStat) {
-            existingStat.totalCatch = Math.round((existingStat.totalCatch + catchAmount) * 10) / 10;
+        // Обновляем улов в бронировании
+        await db.query(
+            'UPDATE bookings SET catch_amount = ROUND((catch_amount + $1)::numeric, 1) WHERE id = $2',
+            [catchAmount, bookingId]
+        );
+        
+        // Обновляем статистику
+        const statResult = await db.query('SELECT * FROM stats_fishing WHERE user_id = $1', [userId]);
+        
+        if (statResult.rows.length > 0) {
+            await db.query(
+                'UPDATE stats_fishing SET total_catch = ROUND((total_catch + $1)::numeric, 1) WHERE user_id = $2',
+                [catchAmount, userId]
+            );
         } else {
-            const user = db.users.find(u => u.id === userId);
-            db.stats.fishing.push({
-                userId,
-                username: user?.username || 'Unknown',
-                totalCatch: Math.round(catchAmount * 10) / 10
-            });
+            const userResult = await db.query('SELECT username FROM users WHERE id = $1', [userId]);
+            await db.query(
+                'INSERT INTO stats_fishing (user_id, username, total_catch) VALUES ($1, $2, $3)',
+                [userId, userResult.rows[0]?.username || 'Unknown', Math.round(catchAmount * 10) / 10]
+            );
         }
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error adding catch' });
-        }
-
+        const updatedBooking = await db.query('SELECT catch_amount FROM bookings WHERE id = $1', [bookingId]);
+        const totalStat = await db.query('SELECT total_catch FROM stats_fishing WHERE user_id = $1', [userId]);
+        
         res.json({ 
-            message: 'Catch added successfully',
-            bookingCatch: booking.catchAmount,
-            totalCatch: db.stats.fishing.find(s => s.userId === userId)?.totalCatch
+            message: 'Улов добавлен',
+            bookingCatch: updatedBooking.rows[0].catch_amount,
+            totalCatch: totalStat.rows[0]?.total_catch || catchAmount
         });
     } catch (error) {
         console.error('Add catch error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.clearFishingStats = async (req, res) => {
     try {
-        const db = req.app.locals.readDB();
-        db.stats.fishing = [];
-        
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error clearing fishing stats' });
-        }
-
-        res.json({ message: 'Fishing statistics cleared successfully' });
+        const db = req.app.locals.db;
+        await db.query('DELETE FROM stats_fishing');
+        res.json({ message: 'Статистика улова очищена' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Clear fishing stats error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.clearVisitsStats = async (req, res) => {
     try {
-        const db = req.app.locals.readDB();
-        db.stats.visits = [];
-        
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error clearing visits stats' });
-        }
-
-        res.json({ message: 'Visits statistics cleared successfully' });
+        const db = req.app.locals.db;
+        await db.query('DELETE FROM stats_visits');
+        res.json({ message: 'Статистика посещений очищена' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Clear visits stats error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
-// Загрузка изображения карты
 exports.uploadMapImage = async (req, res) => {
     try {
         const { image } = req.body;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        if (!db.settings) {
-            db.settings = {};
+        // Проверяем, есть ли уже запись
+        const existing = await db.query("SELECT * FROM settings WHERE key = 'mapImage'");
+        
+        if (existing.rows.length > 0) {
+            await db.query("UPDATE settings SET value = $1 WHERE key = 'mapImage'", [image]);
+        } else {
+            await db.query("INSERT INTO settings (key, value) VALUES ('mapImage', $1)", [image]);
         }
         
-        db.settings.mapImage = image;
-        
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error saving map image' });
-        }
-        
-        res.json({ message: 'Map image saved successfully' });
+        res.json({ message: 'Карта сохранена' });
     } catch (error) {
         console.error('Upload map image error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
-// Получение изображения карты
-/*
-exports.getMapImage = async (req, res) => {
-    try {
-        const db = req.app.locals.readDB();
-        const mapImage = db.settings?.mapImage || null;
-        res.json({ image: mapImage });
-    } catch (error) {
-        console.error('Get map image error:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-};
-*/
-
-// Удаление изображения карты
 exports.deleteMapImage = async (req, res) => {
     try {
-        const db = req.app.locals.readDB();
-        
-        if (db.settings) {
-            db.settings.mapImage = null;
-        }
-        
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error deleting map image' });
-        }
-        
-        res.json({ message: 'Map image deleted successfully' });
+        const db = req.app.locals.db;
+        await db.query("DELETE FROM settings WHERE key = 'mapImage'");
+        res.json({ message: 'Карта удалена' });
     } catch (error) {
         console.error('Delete map image error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
-// Загрузка фото для места
 exports.uploadPlaceImage = async (req, res) => {
     try {
         const { id } = req.params;
         const { image } = req.body;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const place = db.places.find(p => p.id === id);
-        if (!place) {
-            return res.status(404).json({ message: 'Place not found' });
+        const result = await db.query('SELECT * FROM places WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Место не найдено' });
         }
         
-        place.image = image;
+        await db.query('UPDATE places SET image = $1 WHERE id = $2', [image, id]);
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error saving place image' });
-        }
-        
-        res.json({ message: 'Place image saved successfully', image: image });
+        res.json({ message: 'Фото места сохранено', image });
     } catch (error) {
         console.error('Upload place image error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
-// Удаление фото места
 exports.deletePlaceImage = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const place = db.places.find(p => p.id === id);
-        if (!place) {
-            return res.status(404).json({ message: 'Place not found' });
+        const result = await db.query('SELECT * FROM places WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Место не найдено' });
         }
         
-        place.image = null;
+        await db.query('UPDATE places SET image = NULL WHERE id = $1', [id]);
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error deleting place image' });
-        }
-        
-        res.json({ message: 'Place image deleted successfully' });
+        res.json({ message: 'Фото места удалено' });
     } catch (error) {
         console.error('Delete place image error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };

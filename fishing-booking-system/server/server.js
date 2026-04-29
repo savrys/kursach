@@ -7,8 +7,6 @@ const { pool, initTables } = require('./database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Инициализация таблиц PostgreSQL
-initTables();
 
 // Middleware
 app.use(cors());
@@ -120,10 +118,13 @@ const initializeAdmin = async () => {
 };
 
 // Запуск сервера
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Database: PostgreSQL`);
     console.log(`Cache: enabled (GET: 5s, POST/PUT/DELETE: no-store)`);
     console.log(`Audit: enabled (./data/audit.log)`);
-    initializeAdmin();
+    
+    // Ждём создания таблиц, потом создаём админа
+    await initTables();
+    await initializeAdmin();
 });
