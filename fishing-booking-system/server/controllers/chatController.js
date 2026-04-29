@@ -1,64 +1,93 @@
 exports.getUserChats = async (req, res) => {
     try {
         const userId = req.user.id;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
         let chats;
         if (req.user.role === 'manager' || req.user.role === 'admin') {
             // Менеджеры и админы видят все чаты
-            chats = db.chats;
+            const result = await db.query(
+                'SELECT * FROM chats ORDER BY updated_at DESC'
+            );
+            chats = result.rows;
         } else {
             // Обычные пользователи видят только свои чаты
-            chats = db.chats.filter(c => c.userId === userId);
+            const result = await db.query(
+                'SELECT * FROM chats WHERE user_id = $1 ORDER BY updated_at DESC',
+                [userId]
+            );
+            chats = result.rows;
         }
 
-        // Добавляем информацию о пользователях
-        const chatsWithUsers = chats.map(chat => {
-            const user = db.users.find(u => u.id === chat.userId);
-            const lastMessage = db.messages
-                .filter(m => m.chatId === chat.id)
-                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+        // Добавляем информацию о пользователях и последнем сообщении
+        const chatsWithUsers = await Promise.all(chats.map(async (chat) => {
+            const userResult = await db.query(
+                'SELECT id, username FROM users WHERE id = $1',
+                [chat.user_id]
+            );
+            
+            const lastMsgResult = await db.query(
+                'SELECT * FROM messages WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1',
+                [chat.id]
+            );
             
             return {
-                ...chat,
-                username: user?.username || 'Unknown',
-                lastMessage: lastMessage || null
+                id: chat.id,
+                userId: chat.user_id,
+                username: userResult.rows[0]?.username || 'Unknown',
+                lastMessage: lastMsgResult.rows[0] || null,
+                createdAt: chat.created_at,
+                updatedAt: chat.updated_at
             };
-        });
+        }));
 
         res.json(chatsWithUsers);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Get user chats error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.createChat = async (req, res) => {
     try {
         const userId = req.user.id;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
         // Проверяем, существует ли уже чат
-        const existingChat = db.chats.find(c => c.userId === userId);
-        if (existingChat) {
-            return res.json(existingChat);
+        const existingChat = await db.query(
+            'SELECT * FROM chats WHERE user_id = $1',
+            [userId]
+        );
+        
+        if (existingChat.rows.length > 0) {
+            const chat = existingChat.rows[0];
+            return res.json({
+                id: chat.id,
+                userId: chat.user_id,
+                createdAt: chat.created_at,
+                updatedAt: chat.updated_at
+            });
         }
+
+        const id = Date.now().toString();
+        const now = new Date().toISOString();
+        
+        await db.query(
+            'INSERT INTO chats (id, user_id, created_at, updated_at) VALUES ($1, $2, $3, $4)',
+            [id, userId, now, now]
+        );
 
         const newChat = {
-            id: Date.now().toString(),
+            id,
             userId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            createdAt: now,
+            updatedAt: now
         };
-
-        db.chats.push(newChat);
-        
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error creating chat' });
-        }
 
         res.status(201).json(newChat);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Create chat error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
@@ -66,26 +95,41 @@ exports.getMessages = async (req, res) => {
     try {
         const { chatId } = req.params;
         const userId = req.user.id;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const chat = db.chats.find(c => c.id === chatId);
-        if (!chat) {
-            return res.status(404).json({ message: 'Chat not found' });
+        // Проверяем существование чата
+        const chatResult = await db.query('SELECT * FROM chats WHERE id = $1', [chatId]);
+        
+        if (chatResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Чат не найден' });
         }
+
+        const chat = chatResult.rows[0];
 
         // Проверка доступа
-        if (req.user.role !== 'admin' && req.user.role !== 'manager' && 
-            chat.userId !== userId) {
-            return res.status(403).json({ message: 'Access denied' });
+        if (req.user.role !== 'admin' && req.user.role !== 'manager' && chat.user_id !== userId) {
+            return res.status(403).json({ message: 'Доступ запрещён' });
         }
 
-        const messages = db.messages
-            .filter(m => m.chatId === chatId)
-            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        const messages = await db.query(
+            'SELECT * FROM messages WHERE chat_id = $1 ORDER BY created_at ASC',
+            [chatId]
+        );
 
-        res.json(messages);
+        // Преобразуем поля из snake_case в camelCase для совместимости с фронтендом
+        const formattedMessages = messages.rows.map(m => ({
+            id: m.id,
+            chatId: m.chat_id,
+            senderId: m.sender_id,
+            text: m.text,
+            createdAt: m.created_at,
+            read: m.read
+        }));
+
+        res.json(formattedMessages);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Get messages error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
@@ -94,91 +138,105 @@ exports.sendMessage = async (req, res) => {
         const { chatId } = req.params;
         const { text } = req.body;
         const senderId = req.user.id;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const chat = db.chats.find(c => c.id === chatId);
-        if (!chat) {
-            return res.status(404).json({ message: 'Chat not found' });
+        // Проверяем существование чата
+        const chatResult = await db.query('SELECT * FROM chats WHERE id = $1', [chatId]);
+        
+        if (chatResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Чат не найден' });
         }
+
+        const chat = chatResult.rows[0];
 
         // Проверка доступа
-        if (req.user.role !== 'admin' && req.user.role !== 'manager' && 
-            chat.userId !== senderId) {
-            return res.status(403).json({ message: 'Access denied' });
+        if (req.user.role !== 'admin' && req.user.role !== 'manager' && chat.user_id !== senderId) {
+            return res.status(403).json({ message: 'Доступ запрещён' });
         }
 
+        const id = Date.now().toString();
+        const now = new Date().toISOString();
+        
+        await db.query(
+            'INSERT INTO messages (id, chat_id, sender_id, text, read, created_at) VALUES ($1, $2, $3, $4, false, $5)',
+            [id, chatId, senderId, text, now]
+        );
+
+        // Обновляем время чата
+        await db.query(
+            'UPDATE chats SET updated_at = $1 WHERE id = $2',
+            [now, chatId]
+        );
+
         const newMessage = {
-            id: Date.now().toString(),
+            id,
             chatId,
             senderId,
             text,
-            createdAt: new Date().toISOString(),
+            createdAt: now,
             read: false
         };
 
-        db.messages.push(newMessage);
-        chat.updatedAt = new Date().toISOString();
-        
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error sending message' });
-        }
-
         res.status(201).json(newMessage);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Send message error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.deleteChat = async (req, res) => {
+    const client = await req.app.locals.db.pool.connect();
+    
     try {
         const { chatId } = req.params;
-        const db = req.app.locals.readDB();
         
         // Только менеджер или админ может удалять чаты
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            return res.status(403).json({ message: 'Access denied' });
+            return res.status(403).json({ message: 'Доступ запрещён' });
         }
 
-        const chatIndex = db.chats.findIndex(c => c.id === chatId);
-        if (chatIndex === -1) {
-            return res.status(404).json({ message: 'Chat not found' });
-        }
-
-        // Удаляем чат и все сообщения
-        db.chats.splice(chatIndex, 1);
-        db.messages = db.messages.filter(m => m.chatId !== chatId);
+        const chatResult = await client.query('SELECT * FROM chats WHERE id = $1', [chatId]);
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error deleting chat' });
+        if (chatResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Чат не найден' });
         }
 
-        res.json({ message: 'Chat deleted successfully' });
+        await client.query('BEGIN');
+        
+        // Удаляем сообщения чата
+        await client.query('DELETE FROM messages WHERE chat_id = $1', [chatId]);
+        
+        // Удаляем чат
+        await client.query('DELETE FROM chats WHERE id = $1', [chatId]);
+        
+        await client.query('COMMIT');
+
+        res.json({ message: 'Чат удалён' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        await client.query('ROLLBACK');
+        console.error('Delete chat error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    } finally {
+        client.release();
     }
 };
 
-// Отметить сообщение как прочитанное
-// Отметить сообщение как прочитанное
 exports.markAsRead = async (req, res) => {
     try {
         const { messageId } = req.params;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const message = db.messages.find(m => m.id === messageId);
-        if (!message) {
-            return res.status(404).json({ message: 'Message not found' });
+        const result = await db.query('SELECT * FROM messages WHERE id = $1', [messageId]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Сообщение не найдено' });
         }
         
-        message.read = true;
+        await db.query('UPDATE messages SET read = true WHERE id = $1', [messageId]);
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error updating message' });
-        }
-        
-        res.json({ message: 'Message marked as read', messageId });
+        res.json({ message: 'Сообщение отмечено как прочитанное', messageId });
     } catch (error) {
         console.error('Mark as read error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };

@@ -1,16 +1,15 @@
 exports.getAllUsers = async (req, res) => {
     try {
-        const db = req.app.locals.readDB();
-        const users = db.users.map(u => ({
-            id: u.id,
-            username: u.username,
-            email: u.email,
-            role: u.role,
-            createdAt: u.createdAt
-        }));
-        res.json(users);
+        const db = req.app.locals.db;
+        
+        const result = await db.query(
+            'SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC'
+        );
+        
+        res.json(result.rows);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Get all users error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
@@ -18,58 +17,71 @@ exports.updateUserRole = async (req, res) => {
     try {
         const { id } = req.params;
         const { role } = req.body;
-        const db = req.app.locals.readDB();
+        const db = req.app.locals.db;
         
-        const user = db.users.find(u => u.id === id);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+        // Проверяем существование пользователя
+        const userResult = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+        
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Пользователь не найден' });
         }
-
+        
+        const user = userResult.rows[0];
+        
+        // Нельзя изменить роль админа
         if (user.role === 'admin' && role !== 'admin') {
-            return res.status(400).json({ message: 'Cannot change admin role' });
+            return res.status(400).json({ message: 'Нельзя изменить роль администратора' });
         }
-
-        user.role = role;
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error updating user' });
-        }
-
-        res.json({ message: 'User role updated successfully' });
+        // Обновляем роль
+        await db.query('UPDATE users SET role = $1 WHERE id = $2', [role, id]);
+        
+        res.json({ message: 'Роль пользователя обновлена' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Update user role error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 
 exports.deleteUser = async (req, res) => {
+    const client = await req.app.locals.db.pool.connect();
+    
     try {
         const { id } = req.params;
-        const db = req.app.locals.readDB();
         
-        const userIndex = db.users.findIndex(u => u.id === id);
-        if (userIndex === -1) {
-            return res.status(404).json({ message: 'User not found' });
+        await client.query('BEGIN');
+        
+        // Проверяем существование пользователя
+        const userResult = await client.query('SELECT * FROM users WHERE id = $1', [id]);
+        
+        if (userResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Пользователь не найден' });
         }
-
-        if (db.users[userIndex].role === 'admin') {
-            return res.status(400).json({ message: 'Cannot delete admin user' });
+        
+        if (userResult.rows[0].role === 'admin') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Нельзя удалить администратора' });
         }
-
-        db.users.splice(userIndex, 1);
         
         // Удаляем связанные данные
-        db.bookings = db.bookings.filter(b => b.userId !== id);
-        db.chats = db.chats.filter(c => c.userId !== id);
-        db.messages = db.messages.filter(m => m.senderId !== id);
-        db.stats.fishing = db.stats.fishing.filter(s => s.userId !== id);
-        db.stats.visits = db.stats.visits.filter(v => v.userId !== id);
+        await client.query('DELETE FROM messages WHERE sender_id = $1', [id]);
+        await client.query('DELETE FROM chats WHERE user_id = $1', [id]);
+        await client.query('DELETE FROM bookings WHERE user_id = $1', [id]);
+        await client.query('DELETE FROM stats_fishing WHERE user_id = $1', [id]);
+        await client.query('DELETE FROM stats_visits WHERE user_id = $1', [id]);
         
-        if (!req.app.locals.writeDB(db)) {
-            return res.status(500).json({ message: 'Error deleting user' });
-        }
-
-        res.json({ message: 'User deleted successfully' });
+        // Удаляем пользователя
+        await client.query('DELETE FROM users WHERE id = $1', [id]);
+        
+        await client.query('COMMIT');
+        
+        res.json({ message: 'Пользователь удалён' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        await client.query('ROLLBACK');
+        console.error('Delete user error:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    } finally {
+        client.release();
     }
 };

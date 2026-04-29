@@ -28,8 +28,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      const currentPath = window.location.pathname;
+      // Не делаем редирект если мы на странице логина или регистрации
+      if (currentPath !== '/login' && currentPath !== '/register') {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -67,7 +71,6 @@ export const apiService = {
     api.post(`/chats/${chatId}/messages`, { text }).then(res => res.data),
   deleteChat: (chatId) => api.delete(`/chats/${chatId}`).then(res => res.data),
   
-  
   // Админ
   getAllUsers: () => api.get('/admin/users').then(res => res.data),
   updateUserRole: (userId, role) => 
@@ -90,7 +93,7 @@ export const apiService = {
   
   // Изображение карты
   uploadMapImage: (image) => api.post('/manager/map-image', { image }).then(res => res.data),
-  getMapImage: () => api.get('/settings/map-image').then(res => res.data), // ИЗМЕНЕНО: публичный эндпоинт
+  getMapImage: () => api.get('/settings/map-image').then(res => res.data),
   deleteMapImage: () => api.delete('/manager/map-image').then(res => res.data),
   
   // Пользователь
@@ -102,5 +105,4 @@ export const apiService = {
   getTopFishermen: () => api.get('/stats/fishing/top').then(res => res.data),
   getTopVisitors: () => api.get('/stats/visits/top').then(res => res.data),
   updateVisitTime: (hours) => api.post('/stats/visits/update', { hours }).then(res => res.data)
-  
 };

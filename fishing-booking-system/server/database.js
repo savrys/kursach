@@ -5,7 +5,7 @@ const pool = new Pool({
   host: 'localhost',
   database: 'fishing_base',
   password: '12345',
-  port: 5433,
+  port: 5432,
 });
 
 // Создание всех таблиц
