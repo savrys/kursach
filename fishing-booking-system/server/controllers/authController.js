@@ -14,7 +14,6 @@ exports.register = async (req, res) => {
         const { username, email, password } = req.body;
         const db = req.app.locals.db;
 
-        // Проверка существующего пользователя
         const existingUser = await db.query(
             'SELECT * FROM users WHERE email = $1 OR username = $2',
             [email, username]
@@ -24,17 +23,14 @@ exports.register = async (req, res) => {
             return res.status(400).json({ message: 'Пользователь уже существует' });
         }
 
-        // Хеширование пароля
         const hashedPassword = await bcrypt.hash(password, 10);
         const id = Date.now().toString();
 
-        // Создание нового пользователя
         await db.query(
             'INSERT INTO users (id, username, email, password, role) VALUES ($1, $2, $3, $4, $5)',
             [id, username, email, hashedPassword, 'user']
         );
 
-        // Создание JWT токена
         const token = jwt.sign(
             { id: id, role: 'user' },
             JWT_SECRET,
@@ -62,7 +58,6 @@ exports.login = async (req, res) => {
         const { email, password } = req.body;
         const db = req.app.locals.db;
 
-        // Поиск пользователя
         const result = await db.query(
             'SELECT * FROM users WHERE email = $1',
             [email]
@@ -74,13 +69,11 @@ exports.login = async (req, res) => {
 
         const user = result.rows[0];
 
-        // Проверка пароля
         const isValidPassword = await bcrypt.compare(password, user.password);
         if (!isValidPassword) {
             return res.status(401).json({ message: 'Неверный email или пароль' });
         }
 
-        // Создание JWT токена
         const token = jwt.sign(
             { id: user.id, role: user.role },
             JWT_SECRET,

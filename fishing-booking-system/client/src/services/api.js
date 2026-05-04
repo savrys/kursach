@@ -105,4 +105,4 @@ export const apiService = {
   getTopFishermen: () => api.get('/stats/fishing/top').then(res => res.data),
   getTopVisitors: () => api.get('/stats/visits/top').then(res => res.data),
   updateVisitTime: (hours) => api.post('/stats/visits/update', { hours }).then(res => res.data)
-};
+};  
