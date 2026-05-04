@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
 
 const Login = ({ setUser }) => {
@@ -9,6 +9,7 @@ const Login = ({ setUser }) => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({
@@ -26,6 +27,7 @@ const Login = ({ setUser }) => {
       const response = await authService.login(formData);
       localStorage.setItem('token', response.token);
       setUser(response.user);
+      navigate('/');
     } catch (error) {
       setError(error.response?.data?.message || 'Неверный email или пароль');
     } finally {
@@ -78,6 +80,10 @@ const Login = ({ setUser }) => {
             Тестовый аккаунт: admin@fishing.com / admin123
           </p>
         </div>
+        
+        <p style={{ textAlign: 'center', marginTop: '15px' }}>
+          Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
+        </p>
       </form>
     </div>
   );
