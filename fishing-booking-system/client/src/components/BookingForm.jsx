@@ -9,7 +9,6 @@ const BookingForm = ({ place, user, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Автоматический расчет времени окончания
   const calculateEndTime = (startTime, duration) => {
     if (!startTime) return '';
     const start = new Date(startTime);
@@ -57,14 +56,12 @@ const BookingForm = ({ place, user, onClose, onSuccess }) => {
     }
   };
 
-  // Получаем минимальное время (текущее + 1 час)
   const getMinDateTime = () => {
     const now = new Date();
     now.setHours(now.getHours() + 1);
     return now.toISOString().slice(0, 16);
   };
 
-  // Получаем максимальное время (30 дней вперед)
   const getMaxDateTime = () => {
     const now = new Date();
     now.setDate(now.getDate() + 30);
@@ -81,7 +78,7 @@ const BookingForm = ({ place, user, onClose, onSuccess }) => {
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Дата и время начала:</label>
+            <label>Дата и время начала</label>
             <input
               type="datetime-local"
               value={formData.startTime}
@@ -93,7 +90,7 @@ const BookingForm = ({ place, user, onClose, onSuccess }) => {
           </div>
           
           <div className="form-group">
-            <label>Длительность:</label>
+            <label>Длительность</label>
             <select
               value={formData.duration}
               onChange={(e) => handleDurationChange(e.target.value)}
@@ -112,12 +109,12 @@ const BookingForm = ({ place, user, onClose, onSuccess }) => {
           
           {formData.startTime && (
             <div className="form-group">
-              <label>Время окончания:</label>
+              <label>Время окончания</label>
               <div style={{ 
                 padding: '10px', 
-                background: '#f5f5f5', 
+                background: 'rgba(255,255,255,0.05)', 
                 borderRadius: '4px',
-                fontWeight: 'bold',
+                fontWeight: '500',
                 color: '#4CAF50'
               }}>
                 {calculateEndTime(formData.startTime, formData.duration)}

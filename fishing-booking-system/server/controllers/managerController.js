@@ -11,7 +11,6 @@ exports.getPendingBookings = async (req, res) => {
              ORDER BY b.created_at DESC`
         );
         
-        // Преобразуем поля для фронтенда
         const bookings = result.rows.map(b => ({
             id: b.id,
             userId: b.user_id,
@@ -69,7 +68,6 @@ exports.approveBooking = async (req, res) => {
         
         const booking = bookingResult.rows[0];
         
-        // Проверяем конфликты
         const conflictResult = await db.query(
             `SELECT * FROM bookings 
              WHERE place_id = $1 
@@ -232,9 +230,8 @@ exports.deletePlace = async (req, res) => {
             return res.status(404).json({ message: 'Место не найдено' });
         }
         
-        // Проверяем активные бронирования
         const activeBookings = await db.query(
-            "SELECT * FROM bookings WHERE place_id = $1 AND status = 'approved'",
+            "SELECT * FROM bookings WHERE place_id = $1 AND status = 'approved' AND end_time >= NOW()",
             [id]
         );
         
@@ -267,13 +264,11 @@ exports.addCatch = async (req, res) => {
             return res.status(404).json({ message: 'Бронирование не найдено' });
         }
         
-        // Обновляем улов в бронировании
         await db.query(
             'UPDATE bookings SET catch_amount = ROUND((catch_amount + $1)::numeric, 1) WHERE id = $2',
             [catchAmount, bookingId]
         );
         
-        // Обновляем статистику
         const statResult = await db.query('SELECT * FROM stats_fishing WHERE user_id = $1', [userId]);
         
         if (statResult.rows.length > 0) {
@@ -330,7 +325,6 @@ exports.uploadMapImage = async (req, res) => {
         const { image } = req.body;
         const db = req.app.locals.db;
         
-        // Проверяем, есть ли уже запись
         const existing = await db.query("SELECT * FROM settings WHERE key = 'mapImage'");
         
         if (existing.rows.length > 0) {
