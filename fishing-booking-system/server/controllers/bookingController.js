@@ -15,17 +15,15 @@ exports.createBooking = async (req, res) => {
         const userId = req.user.id;
         const db = req.app.locals.db;
 
-        // Проверка места
         const placeResult = await db.query('SELECT * FROM places WHERE id = $1', [placeId]);
         if (placeResult.rows.length === 0) {
             return res.status(404).json({ message: 'Место не найдено' });
         }
 
-        // Вычисляем время окончания
-        const start = new Date(startTime);
-        const end = new Date(start.getTime() + duration * 3600000);
+        const start = startTime;
+        const startDate = new Date(start);
+        const end = new Date(startDate.getTime() + (duration * 60 * 60 * 1000)).toISOString();
 
-        // Проверка на пересечение бронирований
         const conflictResult = await db.query(
             `SELECT * FROM bookings 
              WHERE place_id = $1 
@@ -35,7 +33,7 @@ exports.createBooking = async (req, res) => {
                  ($3 > start_time AND $3 <= end_time) OR
                  ($2 <= start_time AND $3 >= end_time)
              )`,
-            [placeId, start.toISOString(), end.toISOString()]
+            [placeId, start, end]
         );
 
         if (conflictResult.rows.length > 0) {
@@ -44,14 +42,12 @@ exports.createBooking = async (req, res) => {
 
         const id = Date.now().toString();
 
-        // Создаём бронирование
         await db.query(
             `INSERT INTO bookings (id, user_id, place_id, start_time, end_time, status, catch_amount, extended_count, cancel_requested)
              VALUES ($1, $2, $3, $4, $5, 'pending', 0, 0, false)`,
-            [id, userId, placeId, start.toISOString(), end.toISOString()]
+            [id, userId, placeId, start, end]
         );
 
-        // Обновляем время посещения
         const visitResult = await db.query(
             'SELECT * FROM stats_visits WHERE user_id = $1',
             [userId]
@@ -73,8 +69,8 @@ exports.createBooking = async (req, res) => {
             id,
             userId,
             placeId,
-            startTime: start.toISOString(),
-            endTime: end.toISOString(),
+            startTime: start,
+            endTime: end,
             status: 'pending',
             catchAmount: 0,
             extendedCount: 0,
@@ -94,7 +90,6 @@ exports.updateBooking = async (req, res) => {
         const updates = req.body;
         const db = req.app.locals.db;
 
-        // Проверяем существование и права
         const bookingResult = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
         
         if (bookingResult.rows.length === 0) {
@@ -107,7 +102,6 @@ exports.updateBooking = async (req, res) => {
             return res.status(403).json({ message: 'Доступ запрещён' });
         }
 
-        // Обновляем поля
         const fields = [];
         const values = [];
         let count = 1;
@@ -198,7 +192,6 @@ exports.extendBooking = async (req, res) => {
             [newEndTime.toISOString(), id]
         );
 
-        // Обновляем время посещения
         const visitResult = await db.query(
             'SELECT * FROM stats_visits WHERE user_id = $1',
             [booking.user_id]
