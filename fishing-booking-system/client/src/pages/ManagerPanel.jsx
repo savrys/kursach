@@ -41,11 +41,14 @@ const ManagerPanel = () => {
       setPlaces(placesData);
       setUsers(activeUsers);
       
+      // Фильтруем активные брони по local_start и local_end (строки)
       const now = new Date();
+      const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+      
       const active = allBookings.filter(b => 
         b.status === 'approved' && 
-        new Date(b.startTime) <= now && 
-        new Date(b.endTime) >= now
+        b.local_start <= nowStr && 
+        b.local_end >= nowStr
       );
       setActiveBookings(active);
       
@@ -256,12 +259,12 @@ const ManagerPanel = () => {
   };
 
   const getActiveUsers = () => {
-    const activeUserIds = activeBookings.map(b => b.userId);
+    const activeUserIds = activeBookings.map(b => b.user_id);
     return users.filter(u => activeUserIds.includes(u.id));
   };
 
   const getBookingsForUser = (userId) => {
-    return activeBookings.filter(b => b.userId === userId);
+    return activeBookings.filter(b => b.user_id === userId);
   };
 
   if (loading) {
@@ -272,7 +275,7 @@ const ManagerPanel = () => {
 
   return (
     <div className="card">
-      <h2> Панель управления</h2>
+      <h2>Панель управления</h2>
       
       <div style={{ marginBottom: '20px', marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button 
@@ -322,22 +325,22 @@ const ManagerPanel = () => {
                   <tr key={booking.id}>
                     <td>{booking.username}</td>
                     <td>{booking.placeName}</td>
-                    <td>{new Date(booking.startTime).toLocaleString()}</td>
-                    <td>{new Date(booking.endTime).toLocaleString()}</td>
+                    <td>{booking.local_start || booking.startTime}</td>
+                    <td>{booking.local_end || booking.endTime}</td>
                     <td>
                       <button
                         className="btn btn-primary"
                         style={{ marginRight: '10px', padding: '4px 8px' }}
                         onClick={() => handleApproveBooking(booking.id)}
                       >
-                        ✓ Подтвердить
+                        Подтвердить
                       </button>
                       <button
                         className="btn btn-danger"
                         style={{ padding: '4px 8px' }}
                         onClick={() => handleRejectBooking(booking.id)}
                       >
-                        ✕ Отклонить
+                        Отклонить
                       </button>
                     </td>
                   </tr>
@@ -367,15 +370,15 @@ const ManagerPanel = () => {
               </thead>
               <tbody>
                 {activeBookings.map(booking => {
-                  const user = users.find(u => u.id === booking.userId);
-                  const place = places.find(p => p.id === booking.placeId);
+                  const user = users.find(u => u.id === booking.user_id);
+                  const place = places.find(p => p.id === booking.place_id);
                   return (
                     <tr key={booking.id}>
                       <td>{user?.username || 'Неизвестно'}</td>
-                      <td>{place?.name || booking.placeId}</td>
-                      <td>{new Date(booking.startTime).toLocaleString()}</td>
-                      <td>{new Date(booking.endTime).toLocaleString()}</td>
-                      <td>{booking.catchAmount || 0} кг</td>
+                      <td>{place?.name || booking.place_id}</td>
+                      <td>{booking.local_start || booking.start_time}</td>
+                      <td>{booking.local_end || booking.end_time}</td>
+                      <td>{booking.catch_amount || 0} кг</td>
                       <td>
                         <button
                           className="btn btn-danger"
@@ -404,7 +407,6 @@ const ManagerPanel = () => {
             + Добавить место
           </button>
 
-          {/* Форма добавления места */}
           {showAddPlaceForm && (
             <div className="card" style={{ marginBottom: '20px' }}>
               <h3>Новое место</h3>
@@ -475,7 +477,6 @@ const ManagerPanel = () => {
             </div>
           )}
 
-          {/* Форма редактирования места */}
           {showEditPlaceForm && editingPlace && (
             <div className="card" style={{ marginBottom: '20px' }}>
               <h3>Редактирование: {editingPlace.name}</h3>
@@ -555,7 +556,6 @@ const ManagerPanel = () => {
             </div>
           )}
 
-          {/* Таблица мест */}
           <table className="stats-table">
             <thead>
               <tr>
@@ -590,16 +590,11 @@ const ManagerPanel = () => {
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       {place.image ? (
-                        <span style={{ color: '#4CAF50', fontWeight: 'bold' }}>✓</span>
+                        <span style={{ color: '#4CAF50', fontWeight: 'bold' }}>Есть</span>
                       ) : (
                         <span style={{ color: '#999' }}>—</span>
                       )}
-                      <label 
-                        style={{ 
-                          cursor: uploadingImage ? 'not-allowed' : 'pointer',
-                          fontSize: '16px'
-                        }}
-                      >
+                      <label style={{ cursor: uploadingImage ? 'not-allowed' : 'pointer', fontSize: '16px' }}>
                         фото
                         <input
                           type="file"
@@ -617,7 +612,7 @@ const ManagerPanel = () => {
                       style={{ padding: '4px 8px', marginRight: '5px' }}
                       onClick={() => handleEditPlace(place)}
                     >
-                      редактировать
+                      ред.
                     </button>
                     <button
                       className="btn btn-danger"
@@ -639,14 +634,8 @@ const ManagerPanel = () => {
           <h3>Добавить улов</h3>
           
           {activeUsers.length === 0 ? (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '40px', 
-              background: 'rgba(74, 144, 226, 0.1)', 
-              borderRadius: '12px',
-              color: '#666'
-            }}>
-              <p style={{ fontSize: '18px', marginBottom: '10px' }}> Нет активных пользователей</p>
+            <div style={{ textAlign: 'center', padding: '40px', background: 'rgba(74, 144, 226, 0.1)', borderRadius: '12px', color: '#666' }}>
+              <p style={{ fontSize: '18px', marginBottom: '10px' }}>Нет активных пользователей</p>
               <p>В данный момент никто не рыбачит. Дождитесь начала бронирования.</p>
             </div>
           ) : (
@@ -655,21 +644,13 @@ const ManagerPanel = () => {
                 <label>Выберите пользователя:</label>
                 <select
                   value={catchData.userId}
-                  onChange={(e) => {
-                    setCatchData({
-                      ...catchData,
-                      userId: e.target.value,
-                      bookingId: ''
-                    });
-                  }}
+                  onChange={(e) => { setCatchData({ ...catchData, userId: e.target.value, bookingId: '' }); }}
                   required
                   style={{ width: '100%', padding: '12px' }}
                 >
                   <option value="">-- Выберите пользователя --</option>
                   {activeUsers.map(user => (
-                    <option key={user.id} value={user.id}>
-                      {user.username} ({user.email})
-                    </option>
+                    <option key={user.id} value={user.id}>{user.username} ({user.email})</option>
                   ))}
                 </select>
               </div>
@@ -685,11 +666,11 @@ const ManagerPanel = () => {
                   >
                     <option value="">-- Выберите бронирование --</option>
                     {getBookingsForUser(catchData.userId).map(booking => {
-                      const place = places.find(p => p.id === booking.placeId);
+                      const place = places.find(p => p.id === booking.place_id);
                       return (
                         <option key={booking.id} value={booking.id}>
-                          {place?.name || booking.placeId} - до {new Date(booking.endTime).toLocaleTimeString()}
-                          {booking.catchAmount > 0 && ` (уже поймано: ${booking.catchAmount} кг)`}
+                          {place?.name || booking.place_id} - до {booking.local_end || booking.end_time}
+                          {booking.catch_amount > 0 && ` (уже поймано: ${booking.catch_amount} кг)`}
                         </option>
                       );
                     })}
@@ -707,55 +688,24 @@ const ManagerPanel = () => {
                   onChange={(e) => setCatchData({...catchData, amount: e.target.value})}
                   onKeyDown={(e) => {
                     const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
-                    if (!/[0-9.,]/.test(e.key) && !allowedKeys.includes(e.key)) {
-                      e.preventDefault();
-                    }
-                    if (e.key === ',') {
-                      e.preventDefault();
-                      const input = e.target;
-                      const start = input.selectionStart;
-                      const end = input.selectionEnd;
-                      const newValue = input.value.slice(0, start) + '.' + input.value.slice(end);
-                      setCatchData({...catchData, amount: newValue});
-                    }
-                    if ((e.key === '.' || e.key === ',') && e.target.value.includes('.')) {
-                      e.preventDefault();
-                    }
+                    if (!/[0-9.,]/.test(e.key) && !allowedKeys.includes(e.key)) { e.preventDefault(); }
+                    if (e.key === ',') { e.preventDefault(); const input = e.target; const start = input.selectionStart; const end = input.selectionEnd; const newValue = input.value.slice(0, start) + '.' + input.value.slice(end); setCatchData({...catchData, amount: newValue}); }
+                    if ((e.key === '.' || e.key === ',') && e.target.value.includes('.')) { e.preventDefault(); }
                   }}
                   required
                   style={{ width: '100%', padding: '12px' }}
                   placeholder="Например: 0.2, 1.5, 3.7"
                 />
-                <small style={{ 
-                  color: '#666', 
-                  marginTop: '8px', 
-                  display: 'block',
-                  fontSize: '13px'
-                }}>
-                   Можно вводить дробные числа с точностью до 0.1 кг
-                </small>
+                <small style={{ color: '#666', marginTop: '8px', display: 'block', fontSize: '13px' }}>Можно вводить дробные числа с точностью до 0.1 кг</small>
               </div>
               
               {catchData.amount && parseFloat(catchData.amount) > 0 && (
-                <div style={{ 
-                  padding: '12px', 
-                  background: 'rgba(74, 144, 226, 0.1)', 
-                  borderRadius: '8px',
-                  marginBottom: '20px'
-                }}>
-                  <p style={{ margin: 0, color: '#2c3e50' }}>
-                    <strong>Будет добавлено:</strong> {parseFloat(catchData.amount).toFixed(1)} кг рыбы
-                  </p>
+                <div style={{ padding: '12px', background: 'rgba(74, 144, 226, 0.1)', borderRadius: '8px', marginBottom: '20px' }}>
+                  <p style={{ margin: 0, color: '#2c3e50' }}><strong>Будет добавлено:</strong> {parseFloat(catchData.amount).toFixed(1)} кг рыбы</p>
                 </div>
               )}
               
-              <button 
-                type="submit" 
-                className="btn btn-primary"
-                style={{ width: '100%', padding: '12px' }}
-              >
-                 Добавить улов
-              </button>
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }}>Добавить улов</button>
             </form>
           )}
         </div>

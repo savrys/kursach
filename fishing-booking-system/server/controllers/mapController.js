@@ -1,14 +1,29 @@
+// Получаем текущее локальное время как строку
+const getLocalTimeString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:00`;
+};
+
 exports.getAllPlaces = async (req, res) => {
     try {
         const db = req.app.locals.db;
-        const now = new Date().toISOString();
+        const now = getLocalTimeString();
+        
+        // Автоматически отменяем просроченные брони
+        await db.query(
+            "UPDATE bookings SET status = 'cancelled', cancelled_at = NOW() WHERE status = 'approved' AND local_end < $1",
+            [now]
+        );
         
         // Получаем все места
         const placesResult = await db.query('SELECT * FROM places ORDER BY created_at');
-        
         let places = placesResult.rows;
         
-        // Если мест нет, создаём начальные
         if (places.length === 0) {
             const initialPlaces = [
                 { id: '1', name: 'Место #1', x: 100, y: 100, description: 'Хорошее место для ловли карпа', maxCapacity: 3 },
@@ -29,26 +44,21 @@ exports.getAllPlaces = async (req, res) => {
             places = refreshed.rows;
         }
         
-        // Для каждого места получаем статус
         const placesWithStatus = await Promise.all(places.map(async (place) => {
-            // Активное бронирование
             const activeBooking = await db.query(
                 `SELECT b.*, u.username 
                  FROM bookings b 
                  JOIN users u ON b.user_id = u.id 
                  WHERE b.place_id = $1 
                  AND b.status = 'approved' 
-                 AND b.start_time <= $2 
-                 AND b.end_time >= $2
+                 AND b.local_start <= $2 
+                 AND b.local_end >= $2
                  LIMIT 1`,
                 [place.id, now]
             );
             
-            // Ожидающее бронирование
             const pendingBooking = await db.query(
-                `SELECT * FROM bookings 
-                 WHERE place_id = $1 AND status = 'pending' 
-                 LIMIT 1`,
+                `SELECT * FROM bookings WHERE place_id = $1 AND status = 'pending' LIMIT 1`,
                 [place.id]
             );
             
@@ -58,13 +68,24 @@ exports.getAllPlaces = async (req, res) => {
             if (activeBooking.rows.length > 0) {
                 status = 'occupied';
                 const b = activeBooking.rows[0];
-                const timeRemaining = Math.max(0, new Date(b.end_time) - new Date());
+                // Вычисляем оставшееся время через парсинг строк
+                const endParts = b.local_end.split('T')[1].split(':');
+                const endHours = parseInt(endParts[0]);
+                const endMinutes = parseInt(endParts[1]);
+                const endSeconds = parseInt(endParts[2]);
+                const endTotalMs = (endHours * 3600 + endMinutes * 60 + endSeconds) * 1000;
+                
+                const nowDate = new Date();
+                const nowTotalMs = (nowDate.getHours() * 3600 + nowDate.getMinutes() * 60 + nowDate.getSeconds()) * 1000;
+                
+                const timeRemaining = Math.max(0, endTotalMs - nowTotalMs);
+                
                 bookingInfo = {
                     bookingId: b.id,
                     username: b.username || 'Unknown',
                     timeRemaining: timeRemaining,
                     catchAmount: b.catch_amount || 0,
-                    endTime: b.end_time
+                    endTime: b.local_end
                 };
             } else if (pendingBooking.rows.length > 0) {
                 status = 'pending';
@@ -121,7 +142,7 @@ exports.getPlaceStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const db = req.app.locals.db;
-        const now = new Date().toISOString();
+        const now = getLocalTimeString();
         
         const activeBooking = await db.query(
             `SELECT b.*, u.username 
@@ -129,8 +150,8 @@ exports.getPlaceStatus = async (req, res) => {
              JOIN users u ON b.user_id = u.id 
              WHERE b.place_id = $1 
              AND b.status = 'approved' 
-             AND b.start_time <= $2 
-             AND b.end_time >= $2
+             AND b.local_start <= $2 
+             AND b.local_end >= $2
              LIMIT 1`,
             [id, now]
         );
@@ -140,7 +161,11 @@ exports.getPlaceStatus = async (req, res) => {
         }
         
         const b = activeBooking.rows[0];
-        const timeRemaining = Math.max(0, new Date(b.end_time) - new Date());
+        const endParts = b.local_end.split('T')[1].split(':');
+        const endTotalMs = (parseInt(endParts[0]) * 3600 + parseInt(endParts[1]) * 60 + parseInt(endParts[2])) * 1000;
+        const nowDate = new Date();
+        const nowTotalMs = (nowDate.getHours() * 3600 + nowDate.getMinutes() * 60 + nowDate.getSeconds()) * 1000;
+        const timeRemaining = Math.max(0, endTotalMs - nowTotalMs);
         
         res.json({
             status: 'occupied',

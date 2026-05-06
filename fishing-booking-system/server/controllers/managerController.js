@@ -68,17 +68,18 @@ exports.approveBooking = async (req, res) => {
         
         const booking = bookingResult.rows[0];
         
+        // Проверяем конфликты по local_start и local_end
         const conflictResult = await db.query(
             `SELECT * FROM bookings 
              WHERE place_id = $1 
              AND status = 'approved' 
              AND id != $2
              AND (
-                 ($3 >= start_time AND $3 < end_time) OR
-                 ($4 > start_time AND $4 <= end_time) OR
-                 ($3 <= start_time AND $4 >= end_time)
+                 ($3 >= local_start AND $3 < local_end) OR
+                 ($4 > local_start AND $4 <= local_end) OR
+                 ($3 <= local_start AND $4 >= local_end)
              )`,
-            [booking.place_id, id, booking.start_time, booking.end_time]
+            [booking.place_id, id, booking.local_start, booking.local_end]
         );
         
         if (conflictResult.rows.length > 0) {
