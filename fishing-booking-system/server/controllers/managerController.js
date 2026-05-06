@@ -2,12 +2,13 @@ exports.getPendingBookings = async (req, res) => {
     try {
         const db = req.app.locals.db;
         
+        // Показываем и новые брони (pending), и запросы на отмену (cancel_requested = true)
         const result = await db.query(
             `SELECT b.*, u.username, p.name as place_name 
              FROM bookings b 
              JOIN users u ON b.user_id = u.id 
              JOIN places p ON b.place_id = p.id 
-             WHERE b.status = 'pending' 
+             WHERE b.status = 'pending' OR b.cancel_requested = true
              ORDER BY b.created_at DESC`
         );
         
@@ -15,15 +16,17 @@ exports.getPendingBookings = async (req, res) => {
             id: b.id,
             userId: b.user_id,
             placeId: b.place_id,
-            startTime: b.start_time,
-            endTime: b.end_time,
+            startTime: b.local_start || b.start_time,
+            endTime: b.local_end || b.end_time,
             status: b.status,
             catchAmount: b.catch_amount,
             extendedCount: b.extended_count,
             cancelRequested: b.cancel_requested,
             createdAt: b.created_at,
             username: b.username,
-            placeName: b.place_name
+            placeName: b.place_name,
+            local_start: b.local_start,
+            local_end: b.local_end
         }));
         
         res.json(bookings);
@@ -36,16 +39,17 @@ exports.getPendingBookings = async (req, res) => {
 exports.getActiveUsers = async (req, res) => {
     try {
         const db = req.app.locals.db;
-        const now = new Date().toISOString();
+        const now = new Date();
+        const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
         
         const result = await db.query(
             `SELECT DISTINCT u.id, u.username, u.email, u.role 
              FROM users u 
              JOIN bookings b ON u.id = b.user_id 
              WHERE b.status = 'approved' 
-             AND b.start_time <= $1 
-             AND b.end_time >= $1`,
-            [now]
+             AND b.local_start <= $1 
+             AND b.local_end >= $1`,
+            [nowStr]
         );
         
         res.json(result.rows);
@@ -130,13 +134,8 @@ exports.approveCancelRequest = async (req, res) => {
         const { id } = req.params;
         const db = req.app.locals.db;
         
-        const result = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Бронирование не найдено' });
-        }
-        
         await db.query(
-            `UPDATE bookings SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $1, cancel_requested = false WHERE id = $2`,
+            "UPDATE bookings SET status = 'cancelled', cancel_requested = false, cancelled_at = NOW(), cancelled_by = $1 WHERE id = $2",
             [req.user.id, id]
         );
         
@@ -152,11 +151,7 @@ exports.rejectCancelRequest = async (req, res) => {
         const { id } = req.params;
         const db = req.app.locals.db;
         
-        const result = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Бронирование не найдено' });
-        }
-        
+        // Просто убираем флаг, бронь остаётся approved
         await db.query(
             'UPDATE bookings SET cancel_requested = false WHERE id = $1',
             [id]

@@ -47,23 +47,6 @@ const Profile = ({ user }) => {
     }
   };
 
-  const handleCancelBooking = async (bookingId) => {
-    if (!window.confirm('Вы уверены, что хотите отменить бронирование?')) {
-      return;
-    }
-
-    try {
-      await apiService.cancelBooking(bookingId);
-      loadProfile();
-      setMessage('Бронирование отменено');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      setMessage('Ошибка при отмене бронирования');
-      console.error('Error cancelling booking:', error);
-      setTimeout(() => setMessage(''), 3000);
-    }
-  };
-
   const handleRequestCancel = async (bookingId) => {
     if (!window.confirm('Отправить запрос на отмену бронирования менеджеру?')) {
       return;
@@ -85,6 +68,7 @@ const Profile = ({ user }) => {
     const statusMap = {
       pending: 'Ожидает',
       approved: 'Подтверждено',
+      pending_cancel: 'Запрос на отмену',
       rejected: 'Отклонено',
       cancelled: 'Отменено'
     };
@@ -95,6 +79,7 @@ const Profile = ({ user }) => {
     const colorMap = {
       pending: 'rgba(255, 193, 7, 0.9)',
       approved: 'rgba(72, 199, 142, 0.9)',
+      pending_cancel: 'rgba(255, 152, 0, 0.9)',
       rejected: 'rgba(220, 53, 69, 0.9)',
       cancelled: 'rgba(255, 255, 255, 0.3)'
     };
@@ -194,9 +179,9 @@ const Profile = ({ user }) => {
             <tbody>
               {bookings.map(booking => (
                 <tr key={booking.id}>
-                  <td>№{booking.placeId}</td>
-                  <td>{new Date(booking.startTime).toLocaleString('ru-RU')}</td>
-                  <td>{new Date(booking.endTime).toLocaleString('ru-RU')}</td>
+                  <td>№{booking.place_id}</td>
+                  <td>{(booking.local_start || booking.start_time || '').replace('T', ' ')}</td>
+                  <td>{(booking.local_end || booking.end_time || '').replace('T', ' ')}</td>
                   <td>
                     <span style={{
                       padding: '6px 12px',
@@ -208,42 +193,31 @@ const Profile = ({ user }) => {
                     }}>
                       {getStatusText(booking.status)}
                     </span>
-                    {booking.cancelRequested && (
-                      <div style={{ fontSize: '11px', color: 'rgba(255,193,7,0.9)', marginTop: '6px' }}>
-                        Запрос на отмену
-                      </div>
-                    )}
                   </td>
                   <td>
-                    {booking.catchAmount > 0 ? `${booking.catchAmount} кг` : '—'}
+                    {booking.catch_amount > 0 ? `${booking.catch_amount} кг` : '—'}
                   </td>
                   <td>
-                    {booking.status === 'approved' && !booking.cancelRequested && (
-                      <>
-                        <button
-                          className="btn btn-warning"
-                          style={{ padding: '6px 12px', marginRight: '8px', fontSize: '12px' }}
-                          onClick={() => handleRequestCancel(booking.id)}
-                        >
-                          Запросить отмену
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          style={{ padding: '6px 12px', fontSize: '12px' }}
-                          onClick={() => handleCancelBooking(booking.id)}
-                        >
-                          Отменить
-                        </button>
-                      </>
+                    {booking.status === 'approved' && (
+                      <button
+                        className="btn btn-warning"
+                        style={{ padding: '6px 12px', fontSize: '12px' }}
+                        onClick={() => handleRequestCancel(booking.id)}
+                      >
+                        Запросить отмену
+                      </button>
                     )}
                     {booking.status === 'pending' && (
                       <button
                         className="btn btn-danger"
                         style={{ padding: '6px 12px', fontSize: '12px' }}
-                        onClick={() => handleCancelBooking(booking.id)}
+                        onClick={() => handleRequestCancel(booking.id)}
                       >
                         Отменить заявку
                       </button>
+                    )}
+                    {booking.status === 'pending_cancel' && (
+                      <span style={{ color: 'rgba(255,152,0,0.8)', fontSize: '12px' }}>Ожидает решения</span>
                     )}
                     {booking.status === 'cancelled' && (
                       <span style={{ color: 'rgba(255,255,255,0.4)' }}>Отменено</span>
@@ -272,20 +246,10 @@ const Profile = ({ user }) => {
             color: 'white',
             textAlign: 'center'
           }}>
-            <div style={{ 
-              fontSize: '13px', 
-              opacity: 0.7, 
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              marginBottom: '12px'
-            }}>
+            <div style={{ fontSize: '13px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
               Всего бронирований
             </div>
-            <div style={{ 
-              fontSize: '42px', 
-              fontWeight: '300', 
-              letterSpacing: '-0.02em'
-            }}>
+            <div style={{ fontSize: '42px', fontWeight: '300', letterSpacing: '-0.02em' }}>
               {bookings.length}
             </div>
           </div>
@@ -300,20 +264,10 @@ const Profile = ({ user }) => {
             color: 'white',
             textAlign: 'center'
           }}>
-            <div style={{ 
-              fontSize: '13px', 
-              opacity: 0.7, 
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              marginBottom: '12px'
-            }}>
+            <div style={{ fontSize: '13px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
               Активных броней
             </div>
-            <div style={{ 
-              fontSize: '42px', 
-              fontWeight: '300', 
-              letterSpacing: '-0.02em'
-            }}>
+            <div style={{ fontSize: '42px', fontWeight: '300', letterSpacing: '-0.02em' }}>
               {bookings.filter(b => b.status === 'approved').length}
             </div>
           </div>

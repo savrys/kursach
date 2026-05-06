@@ -29,6 +29,16 @@ const Chat = ({ user, onMessagesRead }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Функция для корректировки времени (+3 часа для Москвы)
+  const formatTime = (dateStr) => {
+    const d = new Date(dateStr);
+    d.setHours(d.getHours() + 3);
+    return d.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const loadChats = async () => {
     try {
       const data = await apiService.getChats();
@@ -45,13 +55,11 @@ const Chat = ({ user, onMessagesRead }) => {
       const data = await apiService.getMessages(chatId);
       setMessages(data);
       
-      // Отмечаем непрочитанные сообщения как прочитанные
       const unreadMessages = data.filter(m => m.senderId !== user.id && !m.read);
       if (unreadMessages.length > 0) {
         for (const msg of unreadMessages) {
           await apiService.markMessageAsRead(msg.id);
         }
-        // Уведомляем родительский компонент что сообщения прочитаны
         if (onMessagesRead) {
           onMessagesRead();
         }
@@ -77,6 +85,7 @@ const Chat = ({ user, onMessagesRead }) => {
 
     try {
       const message = await apiService.sendMessage(selectedChat.id, newMessage);
+      message._local = true;
       setMessages([...messages, message]);
       setNewMessage('');
     } catch (error) {
@@ -112,20 +121,19 @@ const Chat = ({ user, onMessagesRead }) => {
 
   return (
     <div className="card">
-      <h2> Чат с администрацией</h2>
+      <h2>Чат с администрацией</h2>
       
       <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
-        {/* Список чатов */}
         <div className="chat-list">
           {user.role === 'user' && chats.length === 0 && (
             <button className="create-chat-btn" onClick={createChat}>
-               Начать чат
+              Начать чат
             </button>
           )}
           
           {user.role === 'user' && chats.length > 0 && (
             <button className="create-chat-btn" onClick={createChat} style={{ marginBottom: '15px' }}>
-               Новый чат
+              Новый чат
             </button>
           )}
           
@@ -146,7 +154,7 @@ const Chat = ({ user, onMessagesRead }) => {
                         deleteChat(chat.id);
                       }}
                     >
-                      ✕
+                      X
                     </button>
                   )}
                 </div>
@@ -161,14 +169,13 @@ const Chat = ({ user, onMessagesRead }) => {
           </div>
         </div>
 
-        {/* Окно чата */}
         <div style={{ flex: 1 }}>
           {selectedChat ? (
             <div className="chat-container">
               <div className="chat-messages">
                 {messages.length === 0 ? (
                   <div className="chat-empty">
-                    <div className="chat-empty-icon"> </div>
+                    <div className="chat-empty-icon"></div>
                     <p>Нет сообщений</p>
                     <p style={{ fontSize: '14px', marginTop: '10px' }}>Напишите первое сообщение!</p>
                   </div>
@@ -185,10 +192,10 @@ const Chat = ({ user, onMessagesRead }) => {
                       </div>
                       <div>{message.text}</div>
                       <div className="message-time">
-                        {new Date(message.createdAt).toLocaleTimeString('ru-RU', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {message._local 
+                          ? new Date(message.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+                          : formatTime(message.createdAt)
+                        }
                       </div>
                     </div>
                   ))
@@ -210,7 +217,7 @@ const Chat = ({ user, onMessagesRead }) => {
             </div>
           ) : (
             <div className="chat-empty">
-              <div className="chat-empty-icon"> </div>
+              <div className="chat-empty-icon"></div>
               <p>Выберите чат</p>
               <p style={{ fontSize: '14px', marginTop: '10px' }}>или создайте новый</p>
             </div>

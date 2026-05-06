@@ -28,6 +28,6 @@ router.post('/:id/extend', [
     body('additionalHours').isInt({ min: 1, max: 24 }).withMessage('Длительность от 1 до 24 часов')
 ], validate, bookingController.extendBooking);
 
-router.post('/:id/cancel-request', bookingController.requestCancel);
+router.post('/:id/request-cancel', bookingController.requestCancel);
 
 module.exports = router;

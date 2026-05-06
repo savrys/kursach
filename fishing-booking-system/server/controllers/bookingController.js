@@ -262,8 +262,9 @@ exports.requestCancel = async (req, res) => {
             return res.status(403).json({ message: 'Доступ запрещён' });
         }
 
+        // Только ставим флаг, статус НЕ меняем
         await db.query(
-            "UPDATE bookings SET cancel_requested = true, cancel_requested_at = NOW() WHERE id = $1",
+            "UPDATE bookings SET cancel_requested = true WHERE id = $1",
             [id]
         );
 
