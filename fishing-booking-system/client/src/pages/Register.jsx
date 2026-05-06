@@ -124,7 +124,7 @@ const Register = ({ setUser }) => {
         </button>
         
         <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <Link to="/login">Уже есть аккаунт? Войти</Link>
+          <Link to="/login"></Link>
         </div>
       </form>
     </div>

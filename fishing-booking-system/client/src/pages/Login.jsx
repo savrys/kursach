@@ -82,7 +82,7 @@ const Login = ({ setUser }) => {
         </div>
         
         <p style={{ textAlign: 'center', marginTop: '15px' }}>
-          Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
+           <Link to="/register"></Link>
         </p>
       </form>
     </div>

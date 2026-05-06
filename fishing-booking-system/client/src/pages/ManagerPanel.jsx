@@ -40,16 +40,23 @@ const ManagerPanel = () => {
       setPendingBookings(bookings);
       setPlaces(placesData);
       setUsers(activeUsers);
+      console.log('Active users from server:', activeUsers);
       
-      // Фильтруем активные брони по local_start и local_end (строки)
       const now = new Date();
       const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
       
-      const active = allBookings.filter(b => 
-        b.status === 'approved' && 
-        b.local_start <= nowStr && 
-        b.local_end >= nowStr
-      );
+      console.log('Now string:', nowStr);
+      console.log('All bookings from server:', allBookings);
+      
+      const active = allBookings.filter(b => {
+        const isActive = b.status === 'approved' && b.local_start <= nowStr && b.local_end >= nowStr;
+        if (b.status === 'approved') {
+          console.log(`Booking ${b.id}: ${b.local_start} <= ${nowStr} = ${b.local_start <= nowStr}, ${b.local_end} >= ${nowStr} = ${b.local_end >= nowStr} => active: ${isActive}`);
+        }
+        return isActive;
+      });
+      
+      console.log('Active bookings count:', active.length);
       setActiveBookings(active);
       
     } catch (error) {
@@ -325,8 +332,8 @@ const ManagerPanel = () => {
                   <tr key={booking.id}>
                     <td>{booking.username}</td>
                     <td>{booking.placeName}</td>
-                    <td>{booking.local_start || booking.startTime}</td>
-                    <td>{booking.local_end || booking.endTime}</td>
+                    <td>{(booking.local_start || booking.start_time || '').replace('T', ' ')}</td>
+                    <td>{(booking.local_end || booking.end_time || '').replace('T', ' ')}</td>
                     <td>
                       <button
                         className="btn btn-primary"
@@ -376,8 +383,8 @@ const ManagerPanel = () => {
                     <tr key={booking.id}>
                       <td>{user?.username || 'Неизвестно'}</td>
                       <td>{place?.name || booking.place_id}</td>
-                      <td>{booking.local_start || booking.start_time}</td>
-                      <td>{booking.local_end || booking.end_time}</td>
+                      <td>{(booking.local_start || booking.startTime || '').replace('T', ' ')}</td>
+                      <td>{(booking.local_end || booking.endTime || '').replace('T', ' ')}</td>
                       <td>{booking.catch_amount || 0} кг</td>
                       <td>
                         <button
