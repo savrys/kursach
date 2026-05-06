@@ -20,20 +20,32 @@ exports.createBooking = async (req, res) => {
             return res.status(404).json({ message: 'Место не найдено' });
         }
 
-        const start = startTime;
-        const startDate = new Date(start);
-        const end = new Date(startDate.getTime() + (duration * 60 * 60 * 1000)).toISOString();
+        // Формируем локальное время из startTime
+        const d = new Date(startTime);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const localStart = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+        
+        // Время конца
+        const endDate = new Date(d.getTime() + duration * 3600000);
+        const endHours = String(endDate.getHours()).padStart(2, '0');
+        const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+        const localEnd = `${year}-${month}-${day}T${endHours}:${endMinutes}:00`;
 
+        // Проверка конфликтов по локальному времени
         const conflictResult = await db.query(
             `SELECT * FROM bookings 
              WHERE place_id = $1 
              AND status = 'approved' 
              AND (
-                 ($2 >= start_time AND $2 < end_time) OR
-                 ($3 > start_time AND $3 <= end_time) OR
-                 ($2 <= start_time AND $3 >= end_time)
+                 ($2 >= local_start AND $2 < local_end) OR
+                 ($3 > local_start AND $3 <= local_end) OR
+                 ($2 <= local_start AND $3 >= local_end)
              )`,
-            [placeId, start, end]
+            [placeId, localStart, localEnd]
         );
 
         if (conflictResult.rows.length > 0) {
@@ -43,9 +55,9 @@ exports.createBooking = async (req, res) => {
         const id = Date.now().toString();
 
         await db.query(
-            `INSERT INTO bookings (id, user_id, place_id, start_time, end_time, status, catch_amount, extended_count, cancel_requested)
-             VALUES ($1, $2, $3, $4, $5, 'pending', 0, 0, false)`,
-            [id, userId, placeId, start, end]
+            `INSERT INTO bookings (id, user_id, place_id, start_time, end_time, local_start, local_end, status, catch_amount, extended_count, cancel_requested)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 0, 0, false)`,
+            [id, userId, placeId, localStart, localEnd, localStart, localEnd]
         );
 
         const visitResult = await db.query(
@@ -69,8 +81,8 @@ exports.createBooking = async (req, res) => {
             id,
             userId,
             placeId,
-            startTime: start,
-            endTime: end,
+            startTime: localStart,
+            endTime: localEnd,
             status: 'pending',
             catchAmount: 0,
             extendedCount: 0,
@@ -184,12 +196,18 @@ exports.extendBooking = async (req, res) => {
         }
 
         const booking = bookingResult.rows[0];
-        const newEndTime = new Date(booking.end_time);
-        newEndTime.setHours(newEndTime.getHours() + additionalHours);
+        
+        // Парсим локальное время конца и добавляем часы
+        const endParts = booking.local_end.split('T');
+        const datePart = endParts[0];
+        const timePart = endParts[1];
+        const [h, m, s] = timePart.split(':');
+        const newHours = parseInt(h) + additionalHours;
+        const newLocalEnd = `${datePart}T${String(newHours).padStart(2, '0')}:${m}:${s}`;
 
         await db.query(
-            'UPDATE bookings SET end_time = $1, extended_count = extended_count + 1 WHERE id = $2',
-            [newEndTime.toISOString(), id]
+            'UPDATE bookings SET end_time = $1, local_end = $1, extended_count = extended_count + 1 WHERE id = $2',
+            [newLocalEnd, id]
         );
 
         const visitResult = await db.query(
