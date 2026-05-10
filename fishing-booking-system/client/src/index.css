@@ -765,3 +765,9 @@ button, .btn {
 input, select, textarea {
   font-family: 'Roboto Slab', serif;
 }
+
+.place-pending-cancel {
+  fill: rgba(66, 133, 244, 0.8);
+  stroke: rgba(66, 133, 244, 0.3);
+  stroke-width: 2;
+}

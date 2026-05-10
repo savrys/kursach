@@ -2,7 +2,7 @@ exports.getPendingBookings = async (req, res) => {
     try {
         const db = req.app.locals.db;
         
-        // Показываем и новые брони (pending), и запросы на отмену (cancel_requested = true)
+        // Заявки на бронирование (pending) И запросы на отмену (cancel_requested = true)
         const result = await db.query(
             `SELECT b.*, u.username, p.name as place_name 
              FROM bookings b 
@@ -72,7 +72,6 @@ exports.approveBooking = async (req, res) => {
         
         const booking = bookingResult.rows[0];
         
-        // Проверяем конфликты по local_start и local_end
         const conflictResult = await db.query(
             `SELECT * FROM bookings 
              WHERE place_id = $1 
@@ -151,7 +150,6 @@ exports.rejectCancelRequest = async (req, res) => {
         const { id } = req.params;
         const db = req.app.locals.db;
         
-        // Просто убираем флаг, бронь остаётся approved
         await db.query(
             'UPDATE bookings SET cancel_requested = false WHERE id = $1',
             [id]
@@ -227,8 +225,8 @@ exports.deletePlace = async (req, res) => {
         }
         
         const activeBookings = await db.query(
-            "SELECT * FROM bookings WHERE place_id = $1 AND status = 'approved' AND end_time >= NOW()",
-            [id]
+            "SELECT * FROM bookings WHERE place_id = $1 AND status = 'approved' AND local_end >= $2",
+            [id, new Date().toISOString()]
         );
         
         if (activeBookings.rows.length > 0) {
