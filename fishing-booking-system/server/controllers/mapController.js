@@ -1,4 +1,3 @@
-// Получаем текущее локальное время как строку
 const getLocalTimeString = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -14,13 +13,11 @@ exports.getAllPlaces = async (req, res) => {
         const db = req.app.locals.db;
         const now = getLocalTimeString();
         
-        // Автоматически отменяем просроченные брони
         await db.query(
             "UPDATE bookings SET status = 'cancelled', cancelled_at = NOW() WHERE status = 'approved' AND local_end < $1",
             [now]
         );
         
-        // Получаем все места
         const placesResult = await db.query('SELECT * FROM places ORDER BY created_at');
         let places = placesResult.rows;
         
@@ -66,14 +63,19 @@ exports.getAllPlaces = async (req, res) => {
             let bookingInfo = null;
             
             if (activeBooking.rows.length > 0) {
-                status = 'occupied';
                 const b = activeBooking.rows[0];
-                // Вычисляем оставшееся время через парсинг строк
+                
+                // Проверяем флаг cancel_requested - синий цвет
+                if (b.cancel_requested) {
+                    status = 'pending_cancel';
+                } else {
+                    status = 'occupied';
+                }
+                
                 const endParts = b.local_end.split('T')[1].split(':');
                 const endHours = parseInt(endParts[0]);
                 const endMinutes = parseInt(endParts[1]);
-                const endSeconds = parseInt(endParts[2]);
-                const endTotalMs = (endHours * 3600 + endMinutes * 60 + endSeconds) * 1000;
+                const endTotalMs = (endHours * 3600 + endMinutes * 60) * 1000;
                 
                 const nowDate = new Date();
                 const nowTotalMs = (nowDate.getHours() * 3600 + nowDate.getMinutes() * 60 + nowDate.getSeconds()) * 1000;
@@ -162,13 +164,18 @@ exports.getPlaceStatus = async (req, res) => {
         
         const b = activeBooking.rows[0];
         const endParts = b.local_end.split('T')[1].split(':');
-        const endTotalMs = (parseInt(endParts[0]) * 3600 + parseInt(endParts[1]) * 60 + parseInt(endParts[2])) * 1000;
+        const endTotalMs = (parseInt(endParts[0]) * 3600 + parseInt(endParts[1]) * 60) * 1000;
         const nowDate = new Date();
         const nowTotalMs = (nowDate.getHours() * 3600 + nowDate.getMinutes() * 60 + nowDate.getSeconds()) * 1000;
         const timeRemaining = Math.max(0, endTotalMs - nowTotalMs);
         
+        let status = 'occupied';
+        if (b.cancel_requested) {
+            status = 'pending_cancel';
+        }
+        
         res.json({
-            status: 'occupied',
+            status: status,
             bookingId: b.id,
             username: b.username || 'Unknown',
             timeRemaining: timeRemaining,

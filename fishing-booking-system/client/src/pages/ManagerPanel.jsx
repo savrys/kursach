@@ -3,6 +3,7 @@ import { apiService } from '../services/api';
 
 const ManagerPanel = () => {
   const [pendingBookings, setPendingBookings] = useState([]);
+  const [cancelRequests, setCancelRequests] = useState([]);
   const [activeBookings, setActiveBookings] = useState([]);
   const [places, setPlaces] = useState([]);
   const [users, setUsers] = useState([]);
@@ -36,29 +37,23 @@ const ManagerPanel = () => {
         apiService.getActiveUsers(),
         apiService.getAllBookings()
       ]);
-      
-      setPendingBookings(bookings);
+
+      const newBookings = bookings.filter(b => b.status === 'pending');
+      const cancelReqs = bookings.filter(b => b.cancelRequested === true);
+
+      setPendingBookings(newBookings);
+      setCancelRequests(cancelReqs);
       setPlaces(placesData);
       setUsers(activeUsers);
-      console.log('Active users from server:', activeUsers);
-      
+
       const now = new Date();
       const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
-      
-      console.log('Now string:', nowStr);
-      console.log('All bookings from server:', allBookings);
-      
-      const active = allBookings.filter(b => {
-        const isActive = b.status === 'approved' && b.local_start <= nowStr && b.local_end >= nowStr;
-        if (b.status === 'approved') {
-          console.log(`Booking ${b.id}: ${b.local_start} <= ${nowStr} = ${b.local_start <= nowStr}, ${b.local_end} >= ${nowStr} = ${b.local_end >= nowStr} => active: ${isActive}`);
-        }
-        return isActive;
-      });
-      
-      console.log('Active bookings count:', active.length);
+
+      const active = allBookings.filter(b =>
+        b.status === 'approved' && b.local_start <= nowStr && b.local_end >= nowStr
+      );
       setActiveBookings(active);
-      
+
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -90,7 +85,7 @@ const ManagerPanel = () => {
     if (!window.confirm('Вы уверены, что хотите отменить это бронирование?')) {
       return;
     }
-    
+
     try {
       await apiService.cancelBooking(bookingId);
       loadData();
@@ -98,6 +93,24 @@ const ManagerPanel = () => {
     } catch (error) {
       alert('Ошибка при отмене бронирования');
       console.error('Error cancelling booking:', error);
+    }
+  };
+
+  const handleApproveCancelRequest = async (bookingId) => {
+    try {
+      await apiService.approveCancelRequest(bookingId);
+      loadData();
+    } catch (error) {
+      alert('Ошибка при одобрении отмены');
+    }
+  };
+
+  const handleRejectCancelRequest = async (bookingId) => {
+    try {
+      await apiService.rejectCancelRequest(bookingId);
+      loadData();
+    } catch (error) {
+      alert('Ошибка при отклонении отмены');
     }
   };
 
@@ -109,11 +122,11 @@ const ManagerPanel = () => {
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          
+
           const maxDimension = 1200;
           let width = img.width;
           let height = img.height;
-          
+
           if (width > maxDimension || height > maxDimension) {
             if (width > height) {
               height = (height * maxDimension) / width;
@@ -123,11 +136,11 @@ const ManagerPanel = () => {
               height = maxDimension;
             }
           }
-          
+
           canvas.width = width;
           canvas.height = height;
           ctx.drawImage(img, 0, 0, width, height);
-          
+
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
           resolve(compressedDataUrl);
         };
@@ -202,7 +215,7 @@ const ManagerPanel = () => {
     }
 
     setUploadingImage(true);
-    
+
     try {
       const compressedImage = await compressImage(file);
       await apiService.uploadPlaceImage(placeId, compressedImage);
@@ -232,31 +245,31 @@ const ManagerPanel = () => {
 
   const handleAddCatch = async (e) => {
     e.preventDefault();
-    
+
     const amount = parseFloat(catchData.amount);
-    
+
     if (!catchData.userId || !catchData.bookingId || !catchData.amount) {
       alert('Заполните все поля');
       return;
     }
-    
+
     if (isNaN(amount) || amount <= 0) {
       alert('Введите корректное количество улова (больше 0)');
       return;
     }
-    
+
     try {
       await apiService.addCatch({
         userId: catchData.userId,
         bookingId: catchData.bookingId,
         amount: amount
       });
-      
+
       const user = users.find(u => u.id === catchData.userId);
       const booking = activeBookings.find(b => b.id === catchData.bookingId);
-      
-      alert(`Улов добавлен!\nПользователь: ${user?.username || 'Неизвестно'}\nМесто: ${booking?.placeId || 'Неизвестно'}\nКоличество: ${amount} кг`);
-      
+
+      alert(`Улов добавлен!\nПользователь: ${user?.username || 'Неизвестно'}\nМесто: ${booking?.place_id || 'Неизвестно'}\nКоличество: ${amount} кг`);
+
       setCatchData({ userId: '', bookingId: '', amount: '' });
       loadData();
     } catch (error) {
@@ -279,31 +292,32 @@ const ManagerPanel = () => {
   }
 
   const activeUsers = getActiveUsers();
+  const totalRequests = pendingBookings.length + cancelRequests.length;
 
   return (
     <div className="card">
       <h2>Панель управления</h2>
-      
+
       <div style={{ marginBottom: '20px', marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        <button 
+        <button
           className={`btn ${activeTab === 'bookings' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('bookings')}
         >
-          Заявки на бронирование ({pendingBookings.length})
+          Заявки ({totalRequests})
         </button>
-        <button 
+        <button
           className={`btn ${activeTab === 'active' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('active')}
         >
           Активные брони ({activeBookings.length})
         </button>
-        <button 
+        <button
           className={`btn ${activeTab === 'places' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('places')}
         >
           Управление местами
         </button>
-        <button 
+        <button
           className={`btn ${activeTab === 'catch' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('catch')}
         >
@@ -313,9 +327,9 @@ const ManagerPanel = () => {
 
       {activeTab === 'bookings' && (
         <div>
-          <h3>Ожидают подтверждения</h3>
+          <h3>Новые бронирования</h3>
           {pendingBookings.length === 0 ? (
-            <p>Нет заявок на бронирование</p>
+            <p>Нет новых заявок</p>
           ) : (
             <table className="stats-table">
               <thead>
@@ -332,8 +346,8 @@ const ManagerPanel = () => {
                   <tr key={booking.id}>
                     <td>{booking.username}</td>
                     <td>{booking.placeName}</td>
-                    <td>{(booking.local_start || booking.start_time || '').replace('T', ' ')}</td>
-                    <td>{(booking.local_end || booking.end_time || '').replace('T', ' ')}</td>
+                    <td>{(booking.local_start || booking.startTime || '').replace('T', ' ')}</td>
+                    <td>{(booking.local_end || booking.endTime || '').replace('T', ' ')}</td>
                     <td>
                       <button
                         className="btn btn-primary"
@@ -346,6 +360,51 @@ const ManagerPanel = () => {
                         className="btn btn-danger"
                         style={{ padding: '4px 8px' }}
                         onClick={() => handleRejectBooking(booking.id)}
+                      >
+                        Отклонить
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <h3 style={{ marginTop: '30px' }}>Запросы на отмену</h3>
+          {cancelRequests.length === 0 ? (
+            <p>Нет запросов на отмену</p>
+          ) : (
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>Место</th>
+                  <th>Начало</th>
+                  <th>Окончание</th>
+                  <th>Статус</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cancelRequests.map(booking => (
+                  <tr key={booking.id} style={{ background: 'rgba(66, 133, 244, 0.08)' }}>
+                    <td>{booking.username}</td>
+                    <td>{booking.placeName}</td>
+                    <td>{(booking.local_start || booking.start_time || '').replace('T', ' ')}</td>
+                    <td>{(booking.local_end || booking.end_time || '').replace('T', ' ')}</td>
+                    <td><span style={{ color: '#4285F4', fontWeight: 'bold' }}>Ждёт отмены</span></td>
+                    <td>
+                      <button
+                        className="btn btn-primary"
+                        style={{ marginRight: '10px', padding: '4px 8px' }}
+                        onClick={() => handleApproveCancelRequest(booking.id)}
+                      >
+                        Одобрить отмену
+                      </button>
+                      <button
+                        className="btn btn-danger"
+                        style={{ padding: '4px 8px' }}
+                        onClick={() => handleRejectCancelRequest(booking.id)}
                       >
                         Отклонить
                       </button>
@@ -676,7 +735,7 @@ const ManagerPanel = () => {
                       const place = places.find(p => p.id === booking.place_id);
                       return (
                         <option key={booking.id} value={booking.id}>
-                          {place?.name || booking.place_id} - до {booking.local_end || booking.end_time}
+                          {place?.name || booking.place_id} - до {(booking.local_end || booking.end_time || '').replace('T', ' ')}
                           {booking.catch_amount > 0 && ` (уже поймано: ${booking.catch_amount} кг)`}
                         </option>
                       );
