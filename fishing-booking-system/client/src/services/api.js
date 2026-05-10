@@ -29,7 +29,6 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const currentPath = window.location.pathname;
-      // Не делаем редирект если мы на странице логина или регистрации
       if (currentPath !== '/login' && currentPath !== '/register') {
         localStorage.removeItem('token');
         window.location.href = '/login';
@@ -96,6 +95,10 @@ export const apiService = {
   getMapImage: () => api.get('/settings/map-image').then(res => res.data),
   deleteMapImage: () => api.delete('/manager/map-image').then(res => res.data),
   
+  // Информация о базе
+  getBaseInfo: () => api.get('/settings/info').then(res => res.data),
+  updateBaseInfo: (data) => api.put('/manager/info', data).then(res => res.data),
+  
   // Пользователь
   getProfile: () => api.get('/user/profile').then(res => res.data),
   updateProfile: (data) => api.put('/user/profile', data).then(res => res.data),
@@ -105,4 +108,4 @@ export const apiService = {
   getTopFishermen: () => api.get('/stats/fishing/top').then(res => res.data),
   getTopVisitors: () => api.get('/stats/visits/top').then(res => res.data),
   updateVisitTime: (hours) => api.post('/stats/visits/update', { hours }).then(res => res.data)
-};  
+};

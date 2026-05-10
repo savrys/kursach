@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const managerController = require('../controllers/managerController');
+const settingsController = require('../controllers/settingsController');
 const authMiddleware = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
@@ -24,5 +25,8 @@ router.post('/places/:id/image', managerController.uploadPlaceImage);
 router.delete('/places/:id/image', managerController.deletePlaceImage);
 router.post('/map-image', managerController.uploadMapImage);
 router.delete('/map-image', managerController.deleteMapImage);
+
+// Редактирование информации о базе
+router.put('/info', settingsController.updateInfo);
 
 module.exports = router;
