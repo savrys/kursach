@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Map from '../components/Map';
 import StatsTable from '../components/StatsTable';
 import Chat from '../components/Chat';
+import BaseInfoModal from '../components/BaseInfoModal';
 import { apiService } from '../services/api';
 
 const Dashboard = ({ user }) => {
@@ -10,7 +11,7 @@ const Dashboard = ({ user }) => {
 
   useEffect(() => {
     loadUnreadCount();
-    const interval = setInterval(loadUnreadCount, 5000); // Проверяем каждые 5 секунд
+    const interval = setInterval(loadUnreadCount, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -21,7 +22,6 @@ const Dashboard = ({ user }) => {
       
       for (const chat of chats) {
         const messages = await apiService.getMessages(chat.id);
-        // Считаем только НЕПРОЧИТАННЫЕ сообщения от других пользователей
         const unread = messages.filter(m => 
           m.senderId !== user.id && m.read === false
         );
@@ -36,11 +36,9 @@ const Dashboard = ({ user }) => {
 
   const handleChatClick = () => {
     setActiveTab('chat');
-    // НЕ сбрасываем счётчик здесь - он сбросится только после прочтения сообщений
   };
 
   const handleMessagesRead = () => {
-    // Этот колбэк вызывается когда сообщения реально отмечены как прочитанные
     loadUnreadCount();
   };
 
@@ -51,20 +49,20 @@ const Dashboard = ({ user }) => {
           className={`btn ${activeTab === 'map' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('map')}
         >
-           Карта мест
+          Карта мест
         </button>
         <button 
           className={`btn ${activeTab === 'stats' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('stats')}
         >
-           Статистика
+          Статистика
         </button>
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <button 
             className={`btn ${activeTab === 'chat' ? 'btn-primary' : ''}`}
             onClick={handleChatClick}
           >
-             Чат
+            Чат
           </button>
           {unreadCount > 0 && (
             <span style={{
@@ -91,9 +89,10 @@ const Dashboard = ({ user }) => {
         </div>
       </div>
 
-      {activeTab === 'map' && <Map user={user} />}
+      {activeTab === 'map' && <Map user={user} onOpenInfo={() => setActiveTab('info')} />}
       {activeTab === 'stats' && <StatsTable user={user} />}
       {activeTab === 'chat' && <Chat user={user} onMessagesRead={handleMessagesRead} />}
+      {activeTab === 'info' && <BaseInfoModal user={user} onClose={() => setActiveTab('map')} />}
     </div>
   );
 };

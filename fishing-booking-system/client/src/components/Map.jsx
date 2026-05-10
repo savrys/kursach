@@ -3,7 +3,7 @@ import { apiService } from '../services/api';
 import PlaceCard from './PlaceCard';
 import BookingForm from './BookingForm';
 
-const Map = ({ user }) => {
+const Map = ({ user, onOpenInfo }) => {
   const [places, setPlaces] = useState([]);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [showBookingForm, setShowBookingForm] = useState(false);
@@ -50,7 +50,6 @@ const Map = ({ user }) => {
     loadPlaces();
   };
 
-  // Функция сжатия изображения (без обрезки, сохраняет пропорции)
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -60,11 +59,9 @@ const Map = ({ user }) => {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
         
-          // Сохраняем оригинальные размеры
           let width = img.width;
           let height = img.height;
         
-          // Максимальный размер только если изображение ОЧЕНЬ большое (> 2000px)
           const maxDimension = 2000;
         
           if (width > maxDimension || height > maxDimension) {
@@ -79,13 +76,8 @@ const Map = ({ user }) => {
         
           canvas.width = width;
           canvas.height = height;
-        
-          // Рисуем изображение
           ctx.drawImage(img, 0, 0, width, height);
-        
-          // Сжимаем качество до 70% для JPEG
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          resolve(compressedDataUrl);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.onerror = reject;
         img.src = e.target.result;
@@ -115,68 +107,40 @@ const Map = ({ user }) => {
       const compressedImage = await compressImage(file);
       await apiService.uploadMapImage(compressedImage);
       setMapImage(compressedImage);
-      alert('Изображение карты сохранено. Теперь его видят все пользователи.');
+      alert('Изображение карты сохранено');
     } catch (error) {
       console.error('Error uploading map image:', error);
-      if (error.response?.status === 413) {
-        alert('Изображение слишком большое. Попробуйте уменьшить его размер или выбрать другое.');
-      } else {
-        alert('Ошибка при сохранении изображения');
-      }
+      alert('Ошибка при сохранении изображения');
     } finally {
       setUploading(false);
     }
   };
 
   const handleResetMap = async () => {
-    if (!window.confirm('Вы уверены, что хотите удалить пользовательскую карту и вернуть стандартную?')) {
-      return;
-    }
-
+    if (!window.confirm('Удалить карту и вернуть стандартную?')) return;
     try {
       await apiService.deleteMapImage();
       setMapImage(null);
-      alert('Карта сброшена на стандартную');
+      alert('Карта сброшена');
     } catch (error) {
       console.error('Error deleting map image:', error);
       alert('Ошибка при сбросе карты');
     }
   };
 
-  if (loading) {
-    return <div className="loading">Загрузка карты...</div>;
-  }
+  if (loading) return <div className="loading">Загрузка карты...</div>;
 
   return (
     <div>
       {(user.role === 'manager' || user.role === 'admin') && (
         <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <label 
-            className="btn btn-primary" 
-            style={{ 
-              cursor: uploading ? 'not-allowed' : 'pointer',
-              opacity: uploading ? 0.7 : 1
-            }}
-          >
-            {uploading ? 'Загрузка...' : ' Загрузить карту'}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              style={{ display: 'none' }}
-              disabled={uploading}
-            />
+          <label className="btn btn-primary" style={{ cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.7 : 1 }}>
+            {uploading ? 'Загрузка...' : 'Загрузить карту'}
+            <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploading} />
           </label>
-          {mapImage && (
-            <button 
-              className="btn" 
-              onClick={handleResetMap}
-            >
-              Сбросить
-            </button>
-          )}
+          {mapImage && <button className="btn" onClick={handleResetMap}>Сбросить</button>}
           <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginLeft: '8px' }}>
-            {mapImage ? '✓ Пользовательская карта' : '○ Стандартная карта'}
+            {mapImage ? 'Пользовательская карта' : 'Стандартная карта'}
           </span>
         </div>
       )}
@@ -189,137 +153,28 @@ const Map = ({ user }) => {
             
             {places.map(place => (
               <g key={place.id} onClick={() => handlePlaceClick(place)}>
-                <circle
-                  cx={place.coordinates.x}
-                  cy={place.coordinates.y}
-                  r="20"
-                  className={`place-marker ${
-                    place.status === 'free' ? 'place-free' :
-                    place.status === 'occupied' ? 'place-occupied' : 'place-pending'
-                  }`}
-                />
-                <text
-                  x={place.coordinates.x}
-                  y={place.coordinates.y}
-                  textAnchor="middle"
-                  dy=".3em"
-                  fill="rgba(255, 255, 255, 0.9)"
-                  fontSize="12"
-                  fontWeight="500"
-                >
-                  {place.name}
-                </text>
+                <circle cx={place.coordinates.x} cy={place.coordinates.y} r="20" className={`place-marker ${place.status === 'free' ? 'place-free' : place.status === 'occupied' ? 'place-occupied' : place.status === 'pending_cancel' ? 'place-pending-cancel' : 'place-pending'}`} />
+                <text x={place.coordinates.x} y={place.coordinates.y} textAnchor="middle" dy=".3em" fill="rgba(255, 255, 255, 0.9)" fontSize="12" fontWeight="500">{place.name}</text>
                 {place.bookingInfo && place.bookingInfo.catchAmount > 0 && (
-                  <text
-                    x={place.coordinates.x}
-                    y={place.coordinates.y + 30}
-                    textAnchor="middle"
-                    className="catch-amount-text"
-                    fontSize="12"
-                    fontWeight="500"
-                  >
-                     {place.bookingInfo.catchAmount} кг
-                  </text>
+                  <text x={place.coordinates.x} y={place.coordinates.y + 30} textAnchor="middle" className="catch-amount-text" fontSize="12" fontWeight="500">{place.bookingInfo.catchAmount} кг</text>
                 )}
-                {place.status === 'occupied' && place.bookingInfo && (
-                  <text
-                    x={place.coordinates.x}
-                    y={place.coordinates.y - 30}
-                    textAnchor="middle"
-                    fill="rgba(255, 255, 255, 0.8)"
-                    fontSize="11"
-                    fontWeight="400"
-                  >
-                    ⏱ {Math.ceil(place.bookingInfo.timeRemaining / 3600000)}ч
-                  </text>
+                {(place.status === 'occupied' || place.status === 'pending_cancel') && place.bookingInfo && (
+                  <text x={place.coordinates.x} y={place.coordinates.y - 30} textAnchor="middle" fill="rgba(255, 255, 255, 0.8)" fontSize="11" fontWeight="400">{Math.ceil(place.bookingInfo.timeRemaining / 3600000)}ч</text>
                 )}
               </g>
             ))}
           </svg>
         ) : (
-          <div style={{ 
-            position: 'relative', 
-            width: '100%', 
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <img 
-              src={mapImage} 
-              alt="Карта рыболовной базы"
-              width="600"
-              height="500"
-              loading="lazy"
-              style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                width: 'auto',
-                height: 'auto',
-                objectFit: 'contain',
-                aspectRatio: '600 / 500'
-              }}
-            />
+          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={mapImage} alt="Карта" width="600" height="500" loading="lazy" style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain', aspectRatio: '600 / 500' }} />
             {places.map(place => (
-              <div
-                key={place.id}
-                onClick={() => handlePlaceClick(place)}
-                style={{
-                  position: 'absolute',
-                  left: `${(place.coordinates.x / 600) * 100}%`,
-                  top: `${(place.coordinates.y / 500) * 100}%`,
-                  transform: 'translate(-50%, -50%)',
-                  cursor: 'pointer'
-                }}
-              >
-                <div
-                  style={{
-                    width: '45px',
-                    height: '45px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: place.status === 'free' ? 'rgba(72, 199, 142, 0.8)' :
-                               place.status === 'occupied' ? 'rgba(220, 53, 69, 0.8)' : 'rgba(255, 193, 7, 0.8)',
-                    backdropFilter: 'blur(8px)',
-                    color: 'white',
-                    fontWeight: '500',
-                    fontSize: '12px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.2)'
-                  }}
-                >
+              <div key={place.id} onClick={() => handlePlaceClick(place)} style={{ position: 'absolute', left: `${(place.coordinates.x / 600) * 100}%`, top: `${(place.coordinates.y / 500) * 100}%`, transform: 'translate(-50%, -50%)', cursor: 'pointer' }}>
+                <div style={{ width: '45px', height: '45px', borderRadius: '50%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: place.status === 'free' ? 'rgba(72, 199, 142, 0.8)' : place.status === 'occupied' ? 'rgba(220, 53, 69, 0.8)' : place.status === 'pending_cancel' ? 'rgba(66, 133, 244, 0.8)' : 'rgba(255, 193, 7, 0.8)', backdropFilter: 'blur(8px)', color: 'white', fontWeight: '500', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)' }}>
                   <div>{place.name}</div>
-                  {place.status === 'occupied' && place.bookingInfo && (
-                    <div style={{ fontSize: '10px', opacity: 0.9 }}>
-                      {Math.ceil(place.bookingInfo.timeRemaining / 3600000)}ч
-                    </div>
-                  )}
+                  {(place.status === 'occupied' || place.status === 'pending_cancel') && place.bookingInfo && <div style={{ fontSize: '10px', opacity: 0.9 }}>{Math.ceil(place.bookingInfo.timeRemaining / 3600000)}ч</div>}
                 </div>
                 {place.bookingInfo && place.bookingInfo.catchAmount > 0 && (
-                  <div
-                    className="catch-amount-badge"
-                    style={{
-                      position: 'absolute',
-                      top: '50px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      background: 'rgba(15, 25, 35, 0.7)',
-                      backdropFilter: 'blur(8px)',
-                      color: '#ffffff',
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                      whiteSpace: 'nowrap',
-                      border: '1px solid rgba(255,255,255,0.15)'
-                    }}
-                  >
-                     {place.bookingInfo.catchAmount} кг
-                  </div>
+                  <div className="catch-amount-badge" style={{ position: 'absolute', top: '50px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(15, 25, 35, 0.7)', backdropFilter: 'blur(8px)', color: '#ffffff', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '500', boxShadow: '0 2px 12px rgba(0,0,0,0.3)', whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.15)' }}>{place.bookingInfo.catchAmount} кг</div>
                 )}
               </div>
             ))}
@@ -327,23 +182,24 @@ const Map = ({ user }) => {
         )}
       </div>
 
-      {selectedPlace && (
-        <PlaceCard
-          place={selectedPlace}
-          user={user}
-          onClose={() => setSelectedPlace(null)}
-          onBook={() => setShowBookingForm(true)}
-          onRefresh={loadPlaces}
-        />
-      )}
+      {/* Кнопка под картой */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+        {user.role === 'manager' || user.role === 'admin' ? (
+          <button className="btn btn-primary" onClick={onOpenInfo}>
+            Редактировать информацию
+          </button>
+        ) : (
+          <button className="btn btn-primary" onClick={onOpenInfo}>
+            Дополнительная информация
+          </button>
+        )}
+      </div>
 
+      {selectedPlace && (
+        <PlaceCard place={selectedPlace} user={user} onClose={() => setSelectedPlace(null)} onBook={() => setShowBookingForm(true)} onRefresh={loadPlaces} />
+      )}
       {showBookingForm && selectedPlace && (
-        <BookingForm
-          place={selectedPlace}
-          user={user}
-          onClose={() => setShowBookingForm(false)}
-          onSuccess={handleBookingSuccess}
-        />
+        <BookingForm place={selectedPlace} user={user} onClose={() => setShowBookingForm(false)} onSuccess={handleBookingSuccess} />
       )}
     </div>
   );
