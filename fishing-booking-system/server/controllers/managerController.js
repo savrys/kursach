@@ -215,30 +215,48 @@ exports.updatePlace = async (req, res) => {
 };
 
 exports.deletePlace = async (req, res) => {
+    const client = await req.app.locals.db.pool.connect();
+    
     try {
         const { id } = req.params;
-        const db = req.app.locals.db;
         
-        const result = await db.query('SELECT * FROM places WHERE id = $1', [id]);
+        await client.query('BEGIN');
+        
+        const result = await client.query('SELECT * FROM places WHERE id = $1', [id]);
         if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Место не найдено' });
         }
         
-        const activeBookings = await db.query(
+        const now = new Date();
+        const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+        
+        // Проверяем активные брони
+        const activeBookings = await client.query(
             "SELECT * FROM bookings WHERE place_id = $1 AND status = 'approved' AND local_end >= $2",
-            [id, new Date().toISOString()]
+            [id, nowStr]
         );
         
         if (activeBookings.rows.length > 0) {
+            await client.query('ROLLBACK');
             return res.status(400).json({ message: 'Нельзя удалить место с активными бронированиями' });
         }
         
-        await db.query('DELETE FROM places WHERE id = $1', [id]);
+        // Удаляем старые брони на это место
+        await client.query('DELETE FROM bookings WHERE place_id = $1', [id]);
+        
+        // Удаляем место
+        await client.query('DELETE FROM places WHERE id = $1', [id]);
+        
+        await client.query('COMMIT');
         
         res.json({ message: 'Место удалено' });
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Delete place error:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
+    } finally {
+        client.release();
     }
 };
 
