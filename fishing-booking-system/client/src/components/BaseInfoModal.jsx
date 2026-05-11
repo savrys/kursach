@@ -45,68 +45,83 @@ const BaseInfoModal = ({ user, onClose }) => {
       zIndex: 1000,
       display: 'flex',
       justifyContent: 'center',
-      alignItems: 'center'
+      alignItems: 'flex-start',
+      paddingTop: '100px',
+      pointerEvents: 'none'
     }}>
       <div style={{
+        animation: 'fadeIn 0.4s ease-out',
         background: 'transparent',
-        backdropFilter: 'blur(15px)',
-        WebkitBackdropFilter: 'blur(15px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        width: '90%',
-        maxWidth: '900px',
-        maxHeight: '85vh',
-        overflow: 'hidden'
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        width: '95%',
+        maxWidth: '1400px',
+        maxHeight: '80vh',
+        overflow: 'hidden',
+        pointerEvents: 'auto',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         {/* Заголовок */}
         <div style={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: 'center',
           alignItems: 'center',
-          padding: '24px 28px',
+          padding: '20px 40px 28px',
           background: 'transparent',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+          borderBottom: 'none',
+          flexShrink: 0,
+          position: 'relative'
         }}>
           <h2 style={{
             margin: 0,
-            fontSize: '24px',
+            fontSize: '28px',
             fontWeight: '300',
             color: '#ffffff',
-            letterSpacing: '-0.02em'
+            letterSpacing: '1px',
+            textAlign: 'center',
+            textShadow: '0 2px 8px rgba(0,0,0,0.5)'
           }}>
             {canEdit && editing ? 'Редактирование информации' : 'О базе отдыха'}
           </h2>
           <button
             onClick={onClose}
             style={{
+              position: 'absolute',
+              right: '20px',
+              top: '50%',
+              transform: 'translateY(-50%)',
               border: 'none',
               background: 'none',
-              color: 'rgba(255, 255, 255, 0.7)',
-              fontSize: '28px',
+              color: 'rgba(255, 255, 255, 0.8)',
+              fontSize: '40px',
               cursor: 'pointer',
-              width: '40px',
-              height: '40px',
+              width: '52px',
+              height: '52px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              textShadow: '0 2px 8px rgba(0,0,0,0.5)'
             }}
             onMouseEnter={(e) => e.target.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.target.style.color = 'rgba(255, 255, 255, 0.7)'}
+            onMouseLeave={(e) => e.target.style.color = 'rgba(255, 255, 255, 0.8)'}
           >
             &times;
           </button>
         </div>
 
         {/* Контент */}
-        <div style={{ display: 'flex', minHeight: '400px' }}>
-          {/* Левая колонка с текстом */}
-          <div style={{ flex: '30%', padding: '28px' }}>
+        <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
+          {/* Левая колонка */}
+          <div style={{ flex: '100%', padding: '16px 24px', display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              background: 'rgba(0, 0, 0, 0.6)',
-              backdropFilter: 'blur(10px)',
-              padding: '24px',
-              height: '100%',
-              minHeight: '300px',
-              border: '1px solid rgba(255, 255, 255, 0.05)'
+              background: 'rgba(0, 0, 0, 0.25)',
+              padding: '20px',
+              flex: 1,
+              minHeight: 0,
+              border: '1px solid rgba(255, 255, 255, 0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
             }}>
               {canEdit && editing ? (
                 <textarea
@@ -114,28 +129,36 @@ const BaseInfoModal = ({ user, onClose }) => {
                   onChange={(e) => setEditData({ ...editData, left: e.target.value })}
                   style={{
                     width: '100%',
-                    height: '100%',
+                    flex: 1,
                     minHeight: '300px',
-                    background: 'rgba(0, 0, 0, 0.4)',
+                    background: 'rgba(0, 0, 0, 0.3)',
                     color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
                     padding: '16px',
-                    resize: 'vertical',
+                    resize: 'none',
                     fontFamily: 'inherit',
                     fontSize: '15px',
                     lineHeight: '1.6',
-                    outline: 'none'
+                    outline: 'none',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word',
+                    whiteSpace: 'pre-wrap'
                   }}
                   placeholder="Введите текст..."
                 />
               ) : (
                 <div style={{
                   whiteSpace: 'pre-wrap',
+                  wordWrap: 'break-word',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
                   lineHeight: '1.8',
                   color: '#e0e8f0',
                   fontSize: '15px',
-                  height: '100%',
-                  overflow: 'auto'
+                  flex: 1,
+                  overflow: 'auto',
+                  minHeight: 0,
+                  textShadow: '0 1px 4px rgba(0,0,0,0.5)'
                 }}>
                   {info.left || 'Информация не добавлена'}
                 </div>
@@ -144,17 +167,19 @@ const BaseInfoModal = ({ user, onClose }) => {
           </div>
 
           {/* Прозрачный центр */}
-          <div style={{ flex: '40%' }} />
+          <div style={{ flex: '120%', minWidth: 0 }} />
 
-          {/* Правая колонка с текстом */}
-          <div style={{ flex: '30%', padding: '28px' }}>
+          {/* Правая колонка */}
+          <div style={{ flex: '100%', padding: '16px 24px', display: 'flex', flexDirection: 'column' }}>
             <div style={{
-              background: 'rgba(0, 0, 0, 0.6)',
-              backdropFilter: 'blur(10px)',
-              padding: '24px',
-              height: '100%',
-              minHeight: '300px',
-              border: '1px solid rgba(255, 255, 255, 0.05)'
+              background: 'rgba(0, 0, 0, 0.25)',
+              padding: '20px',
+              flex: 1,
+              minHeight: 0,
+              border: '1px solid rgba(255, 255, 255, 0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
             }}>
               {canEdit && editing ? (
                 <textarea
@@ -162,28 +187,36 @@ const BaseInfoModal = ({ user, onClose }) => {
                   onChange={(e) => setEditData({ ...editData, right: e.target.value })}
                   style={{
                     width: '100%',
-                    height: '100%',
+                    flex: 1,
                     minHeight: '300px',
-                    background: 'rgba(0, 0, 0, 0.4)',
+                    background: 'rgba(0, 0, 0, 0.3)',
                     color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
                     padding: '16px',
-                    resize: 'vertical',
+                    resize: 'none',
                     fontFamily: 'inherit',
                     fontSize: '15px',
                     lineHeight: '1.6',
-                    outline: 'none'
+                    outline: 'none',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word',
+                    whiteSpace: 'pre-wrap'
                   }}
                   placeholder="Введите текст..."
                 />
               ) : (
                 <div style={{
                   whiteSpace: 'pre-wrap',
+                  wordWrap: 'break-word',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
                   lineHeight: '1.8',
                   color: '#e0e8f0',
                   fontSize: '15px',
-                  height: '100%',
-                  overflow: 'auto'
+                  flex: 1,
+                  overflow: 'auto',
+                  minHeight: 0,
+                  textShadow: '0 1px 4px rgba(0,0,0,0.5)'
                 }}>
                   {info.right || 'Информация не добавлена'}
                 </div>
@@ -198,9 +231,10 @@ const BaseInfoModal = ({ user, onClose }) => {
             display: 'flex',
             gap: '12px',
             justifyContent: 'center',
-            padding: '20px 28px',
+            padding: '20px 40px',
             background: 'transparent',
-            borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+            borderTop: 'none',
+            flexShrink: 0
           }}>
             {editing ? (
               <>
