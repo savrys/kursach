@@ -4,9 +4,40 @@ const path = require('path');
 const fs = require('fs');
 const { pool, initTables } = require('./database');
 
+// Swagger
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsDoc = require('swagger-jsdoc');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Настройка Swagger
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'API рыболовной базы «Туманное утро»',
+      version: '1.0.0',
+      description: 'Документация RESTful API для управления бронью мест, учётом улова и чатами',
+    },
+    servers: [
+      { url: 'http://localhost:5000', description: 'Локальный сервер' }
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
+        }
+      }
+    }
+  },
+  apis: ['./routes/*.js']
+};
+
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Middleware
 app.use(cors());
@@ -123,8 +154,8 @@ app.listen(PORT, async () => {
     console.log(`Database: PostgreSQL`);
     console.log(`Cache: enabled (GET: 5s, POST/PUT/DELETE: no-store)`);
     console.log(`Audit: enabled (./data/audit.log)`);
+    console.log(`Swagger: http://localhost:${PORT}/api/docs`);
     
-    // Ждём создания таблиц, потом создаём админа
     await initTables();
     await initializeAdmin();
 });
