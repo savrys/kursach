@@ -37,6 +37,8 @@ exports.getProfile = async (req, res) => {
             placeId: b.place_id,
             startTime: b.start_time,
             endTime: b.end_time,
+            local_start: b.local_start,
+            local_end: b.local_end,
             status: b.status,
             catchAmount: b.catch_amount,
             extendedCount: b.extended_count,

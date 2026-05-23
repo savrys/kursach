@@ -197,33 +197,35 @@ exports.extendBooking = async (req, res) => {
 
         const booking = bookingResult.rows[0];
         
-        // Парсим локальное время конца и добавляем часы
-        const endParts = booking.local_end.split('T');
-        const datePart = endParts[0];
-        const timePart = endParts[1];
-        const [h, m, s] = timePart.split(':');
-        const newHours = parseInt(h) + additionalHours;
-        const newLocalEnd = `${datePart}T${String(newHours).padStart(2, '0')}:${m}:${s}`;
+        // Парсим local_end как строку с T
+        const parts = booking.local_end.split('T');
+        const date = parts[0];
+        const time = parts[1];
+        const [h, m, s] = time.split(':');
+        
+        let newHours = parseInt(h) + additionalHours;
+        let newDate = date;
+        
+        // Если перевалили за 24 часа
+        if (newHours >= 24) {
+            const daysToAdd = Math.floor(newHours / 24);
+            newHours = newHours % 24;
+            const d = new Date(date);
+            d.setDate(d.getDate() + daysToAdd);
+            const y = d.getFullYear();
+            const mo = String(d.getMonth() + 1).padStart(2, '0');
+            const da = String(d.getDate()).padStart(2, '0');
+            newDate = `${y}-${mo}-${da}`;
+        }
+        
+        const newLocalEnd = `${newDate}T${String(newHours).padStart(2, '0')}:${m}:${s}`;
 
         await db.query(
-            'UPDATE bookings SET end_time = $1, local_end = $1, extended_count = extended_count + 1 WHERE id = $2',
+            'UPDATE bookings SET local_end = $1, extended_count = extended_count + 1 WHERE id = $2',
             [newLocalEnd, id]
         );
 
-        const visitResult = await db.query(
-            'SELECT * FROM stats_visits WHERE user_id = $1',
-            [booking.user_id]
-        );
-
-        if (visitResult.rows.length > 0) {
-            await db.query(
-                'UPDATE stats_visits SET total_hours = total_hours + $1 WHERE user_id = $2',
-                [additionalHours, booking.user_id]
-            );
-        }
-
-        const updated = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
-        res.json(updated.rows[0]);
+        res.json({ message: 'Бронь продлена', local_end: newLocalEnd });
     } catch (error) {
         console.error('Extend booking error:', error);
         res.status(500).json({ message: 'Ошибка сервера' });

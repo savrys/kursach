@@ -179,7 +179,7 @@ const Profile = ({ user }) => {
             <tbody>
               {bookings.map(booking => (
                 <tr key={booking.id}>
-                  <td>№{booking.place_id}</td>
+                  <td>№{booking.placeId}</td>
                   <td>{(booking.local_start || booking.start_time || '').replace('T', ' ')}</td>
                   <td>{(booking.local_end || booking.end_time || '').replace('T', ' ')}</td>
                   <td>
@@ -195,7 +195,7 @@ const Profile = ({ user }) => {
                     </span>
                   </td>
                   <td>
-                    {booking.catch_amount > 0 ? `${booking.catch_amount} кг` : '—'}
+                    {(booking.catchAmount || 0) > 0 ? `${booking.catchAmount} кг` : '—'}
                   </td>
                   <td>
                     {booking.status === 'approved' && (
