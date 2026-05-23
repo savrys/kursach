@@ -92,7 +92,7 @@ const AdminPanel = () => {
                     {user.role}
                   </span>
                 </td>
-                <td>{new Date(user.createdAt).toLocaleDateString()}</td>
+                <td>{user.created_at ? new Date(user.created_at).toLocaleDateString('ru-RU') : '—'}</td>
                 <td>
                   {user.role !== 'admin' && (
                     <>
