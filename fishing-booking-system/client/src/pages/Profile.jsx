@@ -12,6 +12,8 @@ const Profile = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
+  const isManagerOrAdmin = user?.role === 'manager' || user?.role === 'admin';
+
   useEffect(() => {
     loadProfile();
   }, []);
@@ -158,121 +160,125 @@ const Profile = ({ user }) => {
         )}
       </div>
 
-      <div className="card">
-        <h3>Мои бронирования</h3>
-        {bookings.length === 0 ? (
-          <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', padding: '40px 20px' }}>
-            У вас пока нет бронирований
-          </p>
-        ) : (
-          <table className="stats-table">
-            <thead>
-              <tr>
-                <th>Место</th>
-                <th>Начало</th>
-                <th>Окончание</th>
-                <th>Статус</th>
-                <th>Улов</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map(booking => (
-                <tr key={booking.id}>
-                  <td>№{booking.placeId}</td>
-                  <td>{(booking.local_start || booking.start_time || '').replace('T', ' ')}</td>
-                  <td>{(booking.local_end || booking.end_time || '').replace('T', ' ')}</td>
-                  <td>
-                    <span style={{
-                      padding: '6px 12px',
-                      borderRadius: '100px',
-                      background: getStatusColor(booking.status),
-                      color: 'white',
-                      fontSize: '12px',
-                      fontWeight: '500'
-                    }}>
-                      {getStatusText(booking.status)}
-                    </span>
-                  </td>
-                  <td>
-                    {(booking.catchAmount || 0) > 0 ? `${booking.catchAmount} кг` : '—'}
-                  </td>
-                  <td>
-                    {booking.status === 'approved' && (
-                      <button
-                        className="btn btn-warning"
-                        style={{ padding: '6px 12px', fontSize: '12px' }}
-                        onClick={() => handleRequestCancel(booking.id)}
-                      >
-                        Запросить отмену
-                      </button>
-                    )}
-                    {booking.status === 'pending' && (
-                      <button
-                        className="btn btn-danger"
-                        style={{ padding: '6px 12px', fontSize: '12px' }}
-                        onClick={() => handleRequestCancel(booking.id)}
-                      >
-                        Отменить заявку
-                      </button>
-                    )}
-                    {booking.status === 'pending_cancel' && (
-                      <span style={{ color: 'rgba(255,152,0,0.8)', fontSize: '12px' }}>Ожидает решения</span>
-                    )}
-                    {booking.status === 'cancelled' && (
-                      <span style={{ color: 'rgba(255,255,255,0.4)' }}>Отменено</span>
-                    )}
-                    {booking.status === 'rejected' && (
-                      <span style={{ color: 'rgba(220,53,69,0.8)' }}>Отклонено</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {!isManagerOrAdmin && (
+        <>
+          <div className="card">
+            <h3>Мои бронирования</h3>
+            {bookings.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', padding: '40px 20px' }}>
+                У вас пока нет бронирований
+              </p>
+            ) : (
+              <table className="stats-table">
+                <thead>
+                  <tr>
+                    <th>Место</th>
+                    <th>Начало</th>
+                    <th>Окончание</th>
+                    <th>Статус</th>
+                    <th>Улов</th>
+                    <th>Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookings.map(booking => (
+                    <tr key={booking.id}>
+                      <td>№{booking.placeId}</td>
+                      <td>{(booking.local_start || booking.start_time || '').replace('T', ' ')}</td>
+                      <td>{(booking.local_end || booking.end_time || '').replace('T', ' ')}</td>
+                      <td>
+                        <span style={{
+                          padding: '6px 12px',
+                          borderRadius: '100px',
+                          background: getStatusColor(booking.status),
+                          color: 'white',
+                          fontSize: '12px',
+                          fontWeight: '500'
+                        }}>
+                          {getStatusText(booking.status)}
+                        </span>
+                      </td>
+                      <td>
+                        {(booking.catchAmount || 0) > 0 ? `${booking.catchAmount} кг` : '—'}
+                      </td>
+                      <td>
+                        {booking.status === 'approved' && (
+                          <button
+                            className="btn btn-warning"
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                            onClick={() => handleRequestCancel(booking.id)}
+                          >
+                            Запросить отмену
+                          </button>
+                        )}
+                        {booking.status === 'pending' && (
+                          <button
+                            className="btn btn-danger"
+                            style={{ padding: '6px 12px', fontSize: '12px' }}
+                            onClick={() => handleRequestCancel(booking.id)}
+                          >
+                            Отменить заявку
+                          </button>
+                        )}
+                        {booking.status === 'pending_cancel' && (
+                          <span style={{ color: 'rgba(255,152,0,0.8)', fontSize: '12px' }}>Ожидает решения</span>
+                        )}
+                        {booking.status === 'cancelled' && (
+                          <span style={{ color: 'rgba(255,255,255,0.4)' }}>Отменено</span>
+                        )}
+                        {booking.status === 'rejected' && (
+                          <span style={{ color: 'rgba(220,53,69,0.8)' }}>Отклонено</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
 
-      <div className="card">
-        <h3>Статистика</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
-          <div style={{ 
-            padding: '28px 20px', 
-            background: 'rgba(15, 25, 35, 0.4)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            color: 'white',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '13px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
-              Всего бронирований
-            </div>
-            <div style={{ fontSize: '42px', fontWeight: '300', letterSpacing: '-0.02em' }}>
-              {bookings.length}
+          <div className="card">
+            <h3>Статистика</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
+              <div style={{ 
+                padding: '28px 20px', 
+                background: 'rgba(15, 25, 35, 0.4)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                borderRadius: '20px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '13px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+                  Всего бронирований
+                </div>
+                <div style={{ fontSize: '42px', fontWeight: '300', letterSpacing: '-0.02em' }}>
+                  {bookings.length}
+                </div>
+              </div>
+              
+              <div style={{ 
+                padding: '28px 20px', 
+                background: 'rgba(15, 25, 35, 0.4)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                borderRadius: '20px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '13px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+                  Активных броней
+                </div>
+                <div style={{ fontSize: '42px', fontWeight: '300', letterSpacing: '-0.02em' }}>
+                  {bookings.filter(b => b.status === 'approved').length}
+                </div>
+              </div>
             </div>
           </div>
-          
-          <div style={{ 
-            padding: '28px 20px', 
-            background: 'rgba(15, 25, 35, 0.4)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            color: 'white',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '13px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
-              Активных броней
-            </div>
-            <div style={{ fontSize: '42px', fontWeight: '300', letterSpacing: '-0.02em' }}>
-              {bookings.filter(b => b.status === 'approved').length}
-            </div>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };
