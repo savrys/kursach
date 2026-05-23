@@ -72,15 +72,9 @@ exports.getAllPlaces = async (req, res) => {
                     status = 'occupied';
                 }
                 
-                const endParts = b.local_end.split('T')[1].split(':');
-                const endHours = parseInt(endParts[0]);
-                const endMinutes = parseInt(endParts[1]);
-                const endTotalMs = (endHours * 3600 + endMinutes * 60) * 1000;
-                
-                const nowDate = new Date();
-                const nowTotalMs = (nowDate.getHours() * 3600 + nowDate.getMinutes() * 60 + nowDate.getSeconds()) * 1000;
-                
-                const timeRemaining = Math.max(0, endTotalMs - nowTotalMs);
+                const endDateTime = new Date(b.local_end);
+                const nowDateTime = new Date();
+                const timeRemaining = Math.max(0, endDateTime.getTime() - nowDateTime.getTime());
                 
                 bookingInfo = {
                     bookingId: b.id,
@@ -163,11 +157,9 @@ exports.getPlaceStatus = async (req, res) => {
         }
         
         const b = activeBooking.rows[0];
-        const endParts = b.local_end.split('T')[1].split(':');
-        const endTotalMs = (parseInt(endParts[0]) * 3600 + parseInt(endParts[1]) * 60) * 1000;
-        const nowDate = new Date();
-        const nowTotalMs = (nowDate.getHours() * 3600 + nowDate.getMinutes() * 60 + nowDate.getSeconds()) * 1000;
-        const timeRemaining = Math.max(0, endTotalMs - nowTotalMs);
+        const endDateTime = new Date(b.local_end);
+        const nowDateTime = new Date();
+        const timeRemaining = Math.max(0, endDateTime.getTime() - nowDateTime.getTime());
         
         let status = 'occupied';
         if (b.cancel_requested) {

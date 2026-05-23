@@ -31,9 +31,12 @@ exports.createBooking = async (req, res) => {
         
         // Время конца
         const endDate = new Date(d.getTime() + duration * 3600000);
+        const endYear = endDate.getFullYear();
+        const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+        const endDay = String(endDate.getDate()).padStart(2, '0');
         const endHours = String(endDate.getHours()).padStart(2, '0');
         const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
-        const localEnd = `${year}-${month}-${day}T${endHours}:${endMinutes}:00`;
+        const localEnd = `${endYear}-${endMonth}-${endDay}T${endHours}:${endMinutes}:00`;
 
         // Проверка конфликтов по локальному времени
         const conflictResult = await db.query(

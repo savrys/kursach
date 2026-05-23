@@ -166,7 +166,8 @@ const PlaceCard = ({ place, user, onClose, onBook, onRefresh }) => {
   const canExtend = place.status === 'occupied' && 
                     (user.role === 'manager' || user.role === 'admin');
   const canCancel = place.status === 'occupied' && 
-                    place.bookingInfo?.username === user.username;
+                    place.bookingInfo?.username === user.username &&
+                    (user.role === 'manager' || user.role === 'admin');
   const canManageImages = user.role === 'manager' || user.role === 'admin';
 
   const getTimerClass = () => {
