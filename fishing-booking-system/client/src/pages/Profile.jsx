@@ -152,7 +152,7 @@ const Profile = ({ user }) => {
               profile?.role === 'admin' ? 'Администратор' :
               profile?.role === 'manager' ? 'Управляющий' : 'Пользователь'
             }</p>
-            <p><strong>Дата регистрации</strong> {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('ru-RU') : 'Неизвестно'}</p>
+            <p><strong>Дата регистрации</strong> {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ru-RU') : 'Неизвестно'}</p>
             <button className="btn btn-primary" onClick={() => setEditing(true)}>
               Редактировать профиль
             </button>
